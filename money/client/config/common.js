@@ -1,14 +1,8 @@
-'use strict';
-
-const HtmlWebpackPlugin = require('html-webpack-plugin');
-const ScriptExtHtmlWebpackPlugin = require('script-ext-html-webpack-plugin');
-const StyleExtHtmlWebpackPlugin = require('style-ext-html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
-const OptimizeCssAssetsPlugin = require('optimize-css-assets-webpack-plugin');
-const TerserJsPlugin = require('terser-webpack-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
 const {join} = require('path');
 
-const resolveRelativeToProject = relativePath => join(__dirname, relativePath);
+const resolveRelativeToProject = relativePath => join(__dirname, '..', relativePath);
 
 const TSCONFIG = resolveRelativeToProject('tsconfig.json');
 const SRC = resolveRelativeToProject('src');
@@ -17,7 +11,6 @@ const PUBLIC_INDEX_HTML = resolveRelativeToProject('public/index.html');
 const BUILD = resolveRelativeToProject('build');
 
 module.exports = {
-  devtool: false,
   entry: SRC_INDEX_TSX,
   output: {
     path: BUILD,
@@ -50,20 +43,6 @@ module.exports = {
       },
     ],
   },
-  optimization: {
-    minimizer: [
-      new TerserJsPlugin({
-        parallel: true,
-        extractComments: false,
-        terserOptions: {
-          output: {
-            comments: false,
-          },
-        },
-      }),
-      new OptimizeCssAssetsPlugin({}),
-    ],
-  },
   plugins: [
     new HtmlWebpackPlugin({
       inject: true,
@@ -83,10 +62,6 @@ module.exports = {
         useShortDoctype: true,
       },
     }),
-    new ScriptExtHtmlWebpackPlugin({
-      inline: ['index.js'],
-    }),
     new MiniCssExtractPlugin(),
-    new StyleExtHtmlWebpackPlugin(),
   ],
 };

@@ -8,17 +8,26 @@ from os import getenv
 from os.path import dirname, realpath, join, abspath
 from typing import Iterable, Tuple, Optional, List
 
-from flask import Flask, request, g
+from flask import Flask, request, g, send_file
 from werkzeug.exceptions import NotFound, BadRequest
 
 from server.db import prepare_database
-from server.validation import validate_str, validate_int, validate_timestamp, require_json_object_body, parse_money_amount, validate_bool
+from server.validation import validate_str, validate_int, validate_timestamp, require_json_object_body, parse_money_amount
 
 DATABASE = getenv('EUCALYPTUS_DB')
 
-prepare_database(DATABASE, 'money', realpath(join(dirname(abspath(__file__)), '..', 'db')))
+PROJ_DIR = realpath(join(dirname(abspath(__file__)), '..'))
+DATABASE_SCHEMAS_DIR = join(PROJ_DIR, 'db')
+CLIENT_BUILD_DIR = join(PROJ_DIR, 'client', 'build')
+CLIENT_BUILD_PAGE = join(CLIENT_BUILD_DIR, 'index.html')
 
-server = Flask(__name__)
+prepare_database(DATABASE, 'money', DATABASE_SCHEMAS_DIR)
+
+server = Flask(
+    __name__,
+    static_url_path='',
+    static_folder=CLIENT_BUILD_DIR,
+)
 
 
 def get_db():
@@ -43,6 +52,11 @@ def close_connection(exception):
         db.close()
     if exception is not None:
         raise exception
+
+
+@server.route('/', methods=['GET'])
+def root():
+    return send_file(CLIENT_BUILD_PAGE, cache_timeout=0)
 
 
 class Join(Enum):
