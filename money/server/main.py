@@ -282,7 +282,7 @@ def get_transactions_by_month(**args):
             Column("GROUP_CONCAT(txn_part.category, ',')", 'combined_categories'),
         ),
         joins=(
-            JoiningTable(Join.inner, 'txn_part', 'txn_part.txn = txn.id'),
+            JoiningTable(Join.left, 'txn_part', 'txn_part.txn = txn.id'),
         ),
         cond="strftime('%Y-%m', timestamp) = ?",
         cond_params=(f'{year:04}-{month:02}',),
@@ -290,7 +290,7 @@ def get_transactions_by_month(**args):
     )
     for t in transactions:
         raw_combined_categories = t['combined_categories']
-        t['combined_categories'] = [] if not raw_combined_categories else raw_combined_categories.split(',')
+        t['combined_categories'] = [] if not raw_combined_categories else [int(c) for c in raw_combined_categories.split(',')]
 
     return {
         "transactions": transactions,
