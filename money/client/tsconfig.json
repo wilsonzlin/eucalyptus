@@ -12,7 +12,8 @@
     "jsx": "react",
     "lib": [
       "es2020",
-      "dom"
+      "dom",
+      "dom.iterable"
     ],
     "module": "commonjs",
     "moduleResolution": "node",

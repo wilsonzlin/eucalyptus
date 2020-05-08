@@ -26,7 +26,7 @@ def _get_or_default(
 ) -> Optional[T]:
     if prop not in body:
         if optional == False:
-            raise MalformedInputException(f"{prop} is missing")
+            raise MalformedInputException(f"The {prop} is missing.")
         return None if optional == True else optional
     else:
         val = body[prop]
@@ -36,14 +36,14 @@ def _get_or_default(
                     return parse_from_str(val)
                 except ValueError:
                     pass
-            raise MalformedInputException(f"{prop} is not a {typ.__name__}")
+            raise MalformedInputException(f"The {prop} is missing or incorrect.")
         return val
 
 
 def require_json_object_body():
     body = request.json
     if type(body) != dict:
-        raise MalformedInputException("Expected JSON object body")
+        raise MalformedInputException("Expected a JSON object body.")
     return body
 
 
@@ -55,7 +55,7 @@ def parse_bool(raw: str):
         return False
     if raw == '1':
         return True
-    raise ValueError('Boolean string is not "0" or "1"')
+    raise ValueError('Boolean string is not "0" or "1".')
 
 
 def parse_money_amount(raw: str):
@@ -63,7 +63,7 @@ def parse_money_amount(raw: str):
         integer, decimal = MONEY_AMOUNT_REGEX.search(raw).groups()
         return int(integer) * 100 + int(decimal)
     except (AttributeError, ValueError):
-        raise ValueError("Invalid money amount string")
+        raise ValueError("Invalid money amount string.")
 
 
 def validate_str(
@@ -85,10 +85,10 @@ def validate_str(
         return val
 
     if min_len is not None and len(val) < min_len:
-        raise MalformedInputException(f"{prop} is too short")
+        raise MalformedInputException(f"The {prop} is too short.")
 
     if max_len is not None and len(val) > max_len:
-        raise MalformedInputException(f"{prop} is too long")
+        raise MalformedInputException(f"The {prop} is too long.")
 
     return val
 
@@ -113,10 +113,10 @@ def validate_int(
         return val
 
     if min_val is not None and val < min_val:
-        raise MalformedInputException(f"{prop} is too small")
+        raise MalformedInputException(f"The {prop} is too small.")
 
     if max_val is not None and val > max_val:
-        raise MalformedInputException(f"{prop} is too large")
+        raise MalformedInputException(f"The {prop} is too large.")
 
     return val
 

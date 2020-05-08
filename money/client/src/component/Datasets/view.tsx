@@ -1,0 +1,125 @@
+import React, {useCallback, useState} from 'react';
+import {MDataset, MDatasetSource, service} from '../../service/Service';
+import {InfoAlert, MaybeErrorAlert} from '../../ui/Alert/view';
+import {PrimaryButton, SecondaryButton} from '../../ui/Button/view';
+import {Dialog} from '../../ui/Dialog/view';
+import {DialogFooter} from '../../ui/DialogFooter/view';
+import {Form} from '../../ui/Form/view';
+import {Label} from '../../ui/Label/view';
+import {ManagedRadioGroup} from '../../ui/RadioGroup/view';
+import {RouteView} from '../../ui/RouteView/view';
+import {ManagedTextInput} from '../../ui/TextInput/view';
+import {useServiceFetch} from '../../util/ServiceFetch';
+import styles from './style.css';
+
+export const Datasets = ({}: {}) => {
+  const {data: datasets} = useServiceFetch<MDataset[]>({
+    fetcher: () => service.getDatasets().then(({datasets}) => datasets),
+    initial: [],
+    dependencies: [],
+  });
+
+  const {data: datasetSources, refresh: refreshDatasetSources} = useServiceFetch<MDatasetSource[]>({
+    fetcher: () => service.getDatasetSources().then(({sources}) => sources),
+    initial: [],
+    dependencies: [],
+  });
+
+  const [addDatasetDialogOpen, setAddDatasetDialogOpen] = useState<boolean>(false);
+  const [addDatasetDialogError, setAddDatasetDialogError] = useState<string>('');
+  const addDatasetHandler = useCallback(async (opt) => {
+    try {
+      await service.createDataset(opt);
+      setAddDatasetDialogOpen(false);
+    } catch (e) {
+      setAddDatasetDialogError(e.message);
+    }
+  }, []);
+
+  const [addDatasetSourceDialogOpen, setAddDatasetSourceDialogOpen] = useState<boolean>(false);
+  const [addDatasetSourceDialogError, setAddDatasetSourceDialogError] = useState<string>('');
+  const addDatasetSourceHandler = useCallback(async (opt) => {
+    try {
+      await service.createDatasetSource(opt);
+      refreshDatasetSources();
+      setAddDatasetSourceDialogOpen(false);
+    } catch (e) {
+      setAddDatasetSourceDialogError(e.message);
+    }
+  }, []);
+
+
+  return (
+    <RouteView route="/datasets">
+      {() => (
+        <div>
+          <h1>Datasets</h1>
+          <div className={styles.menu}>
+            <button onClick={() => setAddDatasetDialogOpen(true)}>Add dataset</button>
+          </div>
+          <div>
+            {datasets.map(dataset => (
+              <div key={dataset.id}>
+                <div>{dataset.source_name}</div>
+                <div>{dataset.created}</div>
+                <div>{dataset.comment}</div>
+              </div>
+            ))}
+          </div>
+
+          <Dialog open={addDatasetDialogOpen} title="Add dataset">
+            {!datasetSources.length ? (
+              <>
+                <InfoAlert>You need at least one dataset source to add a dataset.</InfoAlert>
+                <DialogFooter>
+                  <PrimaryButton onClick={() => setAddDatasetSourceDialogOpen(true)}>Add source</PrimaryButton>
+                  <SecondaryButton onClick={() => setAddDatasetDialogOpen(false)}>Cancel</SecondaryButton>
+                </DialogFooter>
+              </>
+            ) : (
+              <>
+                <MaybeErrorAlert>{addDatasetDialogError}</MaybeErrorAlert>
+                <SecondaryButton onClick={() => setAddDatasetSourceDialogOpen(true)}>Add source</SecondaryButton>
+                <Form onSubmit={addDatasetHandler}>
+                  {form => (
+                    <>
+                      <ManagedRadioGroup<number>
+                        form={form}
+                        name="source"
+                        options={datasetSources.map(s => ({
+                          key: s.id,
+                          value: s.id,
+                          label: s.name,
+                        }))}
+                      />
+                      <DialogFooter>
+                        <PrimaryButton submit>Add</PrimaryButton>
+                        <SecondaryButton onClick={() => setAddDatasetDialogOpen(false)}>Cancel</SecondaryButton>
+                      </DialogFooter>
+                    </>
+                  )}
+                </Form>
+              </>
+            )}
+          </Dialog>
+
+          <Dialog open={addDatasetSourceDialogOpen} title="Add dataset source">
+            <MaybeErrorAlert>{addDatasetSourceDialogError}</MaybeErrorAlert>
+            <Form onSubmit={addDatasetSourceHandler}>
+              {form => (
+                <>
+                  <Label label="Name"><ManagedTextInput form={form} name="name" autoFocus/></Label>
+                  <Label label="Comment"><ManagedTextInput form={form} name="comment" lines={3}/></Label>
+                  <DialogFooter>
+                    <PrimaryButton submit>Add</PrimaryButton>
+                    <SecondaryButton onClick={() => setAddDatasetSourceDialogOpen(false)}>Cancel</SecondaryButton>
+                  </DialogFooter>
+                </>
+              )}
+            </Form>
+          </Dialog>
+        </div>
+      )}
+    </RouteView>
+  );
+};

@@ -1,0 +1,7 @@
+.dialog {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 1rem;
+  padding: 1rem;
+  width: 40rem;
+  max-width: 95%;
+}

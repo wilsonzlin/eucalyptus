@@ -1,0 +1,9 @@
+.label {
+  display: block;
+}
+
+.text {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: gray;
+}

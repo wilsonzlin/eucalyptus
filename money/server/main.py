@@ -2,16 +2,15 @@ import csv
 import json
 import sqlite3
 from datetime import datetime
-from enum import Enum
 from io import StringIO
 from os import getenv
 from os.path import dirname, realpath, join, abspath
-from typing import Iterable, Tuple, Optional, List
 
 from flask import Flask, request, g, send_file
-from werkzeug.exceptions import NotFound, BadRequest
+from werkzeug.exceptions import BadRequest
 
 from server.db import prepare_database
+from server.sql import fetch_all_as_dict, Cond, Column, require_one, require_changed_row, JoiningTable, Join
 from server.validation import validate_str, validate_int, validate_timestamp, require_json_object_body, parse_money_amount
 
 DATABASE = getenv('EUCALYPTUS_DB')
@@ -59,65 +58,6 @@ def root():
     return send_file(CLIENT_BUILD_PAGE, cache_timeout=0)
 
 
-class Join(Enum):
-    inner = 'INNER'
-    left = 'LEFT'
-    right = 'RIGHT'
-
-
-class Column:
-    def __init__(self, expr: str, alias: Optional[str] = None):
-        self.expr = expr
-        self.alias = alias
-
-    def name(self):
-        return self.alias or self.expr
-
-
-class JoiningTable:
-    def __init__(self, method: Join, table: str, on: str, alias: Optional[str] = None):
-        self.method = method
-        self.table = table
-        self.on = on
-        self.alias = alias
-
-    def name(self):
-        return self.table or self.alias
-
-
-def fetch_all_as_dict(
-        *,
-        table: str,
-        cols: Tuple[Column, ...],
-        joins: Tuple[JoiningTable, ...] = (),
-        cond: str,
-        cond_params: Iterable = (),
-        group_by: Optional[str] = None,
-):
-    c = get_db().cursor()
-    c.execute(f"""
-        SELECT {', '.join((f"({col.expr})" for col in cols))}
-        FROM {table}
-        {','.join((f'{j.method.value} JOIN {j.table} AS {j.name()} ON ({j.on})' for j in joins))}
-        WHERE {cond}
-        {'' if not group_by else f'GROUP BY {group_by}'}
-    """, cond_params)
-    return [{cols[i].name(): row[i] for i in range(len(cols))} for row in c.fetchall()]
-
-
-def require_one(rows: List):
-    assert len(rows) <= 1
-    try:
-        return rows[0]
-    except IndexError:
-        raise NotFound()
-
-
-def require_changed_row(rowcount: int):
-    if not rowcount:
-        raise NotFound()
-
-
 @server.route("/dataset_sources", methods=['POST'])
 def create_dataset_source():
     opt = require_json_object_body()
@@ -132,15 +72,16 @@ def create_dataset_source():
 
 
 @server.route("/dataset_sources", methods=['GET'])
-def list_dataset_sources():
+def get_dataset_sources():
     return {
         "sources": fetch_all_as_dict(
+            c=get_db().cursor(),
             table='dataset_source',
             cols=(
                 Column('id'),
                 Column('name'),
             ),
-            cond='TRUE'
+            where=Cond('TRUE'),
         ),
     }
 
@@ -198,37 +139,23 @@ def create_dataset(**args):
     }
 
 
-@server.route("/dataset/<dataset>", methods=['GET'])
-def get_dataset_details(**args):
-    dataset = validate_int(args, 'dataset', min_val=0, parse_from_str=True)
-    return require_one(fetch_all_as_dict(
-        table='dataset',
-        cols=(
-            Column('source'),
-            Column('comment'),
-            Column('created'),
-        ),
-        cond='id = ?',
-        cond_params=(dataset,),
-    ))
-
-
-@server.route("/dataset/<dataset>/transactions", methods=['GET'])
-def get_dataset_transactions(**args):
-    dataset = validate_int(args, 'dataset', min_val=0, parse_from_str=True)
+@server.route("/datasets", methods=['GET'])
+def get_datasets():
     return {
-        "transactions": fetch_all_as_dict(
-            table='txn',
+        "datasets": fetch_all_as_dict(
+            c=get_db().cursor(),
+            table='dataset',
             cols=(
-                Column('id'),
-                Column('comment'),
-                Column('malformed'),
-                Column('timestamp'),
-                Column('description'),
-                Column('amount'),
+                Column('dataset.id', 'id'),
+                Column('dataset.source', 'source_id'),
+                Column('dataset_source.name', 'source_name'),
+                Column('dataset.comment', 'comment'),
+                Column('dataset.created', 'created'),
             ),
-            cond='dataset = ?',
-            cond_params=(dataset,),
+            joins=(
+                JoiningTable(Join.left, 'dataset_source', "dataset_source.id = dataset.source"),
+            ),
+            where=Cond('TRUE'),
         )
     }
 
@@ -278,12 +205,23 @@ def create_category():
     }
 
 
-@server.route("/transactions/<year>/<month>", methods=['GET'])
-def get_transactions_by_month(**args):
-    year = validate_int(args, 'year', min_val=0, max_val=9999, parse_from_str=True)
-    month = validate_int(args, 'month', min_val=1, max_val=12, parse_from_str=True)
+@server.route("/transactions", methods=['GET'])
+def get_transactions():
+    opt = request.args
+    year = validate_int(opt, 'year', min_val=0, max_val=9999, parse_from_str=True, optional=True)
+    month = validate_int(opt, 'month', min_val=1, max_val=12, parse_from_str=True, optional=True)
+    dataset = validate_int(opt, 'dataset', min_val=0, parse_from_str=True, optional=True)
+
+    cond = Cond('TRUE')
+    if month is not None:
+        cond += Cond("strftime(%m, txn.timestamp) = ?", f'{month:02}')
+    if year is not None:
+        cond += Cond("strftime(%Y, txn.timestamp) = ?", f'{year:04}')
+    if dataset is not None:
+        cond += Cond("txn.dataset = ?", dataset)
 
     transactions = fetch_all_as_dict(
+        c=get_db().cursor(),
         table='txn',
         cols=(
             Column('txn.id', 'id'),
@@ -298,8 +236,7 @@ def get_transactions_by_month(**args):
         joins=(
             JoiningTable(Join.left, 'txn_part', 'txn_part.txn = txn.id'),
         ),
-        cond="strftime('%Y-%m', timestamp) = ?",
-        cond_params=(f'{year:04}-{month:02}',),
+        where=cond,
         group_by="txn_part.txn"
     )
     for t in transactions:

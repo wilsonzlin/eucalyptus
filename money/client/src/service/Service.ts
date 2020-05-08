@@ -1,6 +1,30 @@
 import moment, {Moment} from 'moment';
 
-type QueryParamValue = string | boolean | number;
+export type MTransaction = {
+  id: number;
+  comment: string;
+  malformed: boolean;
+  timestamp: Moment;
+  description: string;
+  transaction_amount: number;
+  combined_amount: number;
+  combined_categories: number[];
+};
+
+export type MDataset = {
+  id: number;
+  source_id: number;
+  source_name: string;
+  comment: string;
+  created: Moment;
+};
+
+export type MDatasetSource = {
+  id: number;
+  name: string;
+};
+
+type QueryParamValue = string | boolean | number | undefined;
 
 const encodeQueryParamValue = (value: QueryParamValue): string => {
   switch (typeof value) {
@@ -15,9 +39,12 @@ const encodeQueryParamValue = (value: QueryParamValue): string => {
   }
 };
 
-const encodeQueryParamPair = ([name, value]: [string, QueryParamValue]) => `${encodeURIComponent(name)}=${encodeQueryParamValue(value)}`;
+const encodeQueryParamPair = ([name, value]: [string, QueryParamValue]) => value == undefined
+  ? ''
+  : `${encodeURIComponent(name)}=${encodeQueryParamValue(value)}`;
 
 const encodeQueryParamPairs = (pairs: [string, QueryParamValue][]) => {
+  pairs = pairs.filter(([_, value]) => value != undefined);
   return !pairs.length
     ? ''
     : `?${pairs.map(encodeQueryParamPair).join('&')}`;
@@ -38,7 +65,7 @@ export class ServiceError extends Error {
   }
 }
 
-export class Service {
+class Service {
   constructor (
     private readonly prefix: string,
   ) {
@@ -77,13 +104,15 @@ export class Service {
           }
         }
       };
-      xhr.send(
-        !body
-          ? null
-          : body instanceof File
-          ? body
-          : JSON.stringify(body),
-      );
+      if (body instanceof File) {
+        xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+        xhr.send(body);
+      } else if (!body) {
+        xhr.send(null);
+      } else {
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(JSON.stringify(body));
+      }
     });
   }
 
@@ -98,13 +127,13 @@ export class Service {
   }> {
     return this.makeRequest({
       method: 'POST',
-      path: '/dataset_source',
+      path: '/dataset_sources',
       body: {name, comment},
     });
   }
 
-  async listDatasetSources (): Promise<{
-    sources: { id: number; name: string; }[];
+  async getDatasetSources (): Promise<{
+    sources: MDatasetSource[];
   }> {
     return this.makeRequest({
       method: 'GET',
@@ -142,43 +171,15 @@ export class Service {
     });
   }
 
-  async getDatasetDetails ({
-    dataset,
-  }: {
-    dataset: number;
-  }): Promise<{
-    source: number;
-    comment: string;
-    created: Moment;
+  async getDatasets (): Promise<{
+    datasets: MDataset[];
   }> {
     const res = await this.makeRequest<any>({
       method: 'GET',
-      path: `/dataset/${dataset}`,
+      path: `/datasets`,
     });
-    res.created = parseJsonTimestampValue(res.created);
-    return res;
-  }
-
-  async getDatasetTransactions ({
-    dataset,
-  }: {
-    dataset: number;
-  }): Promise<{
-    transactions: {
-      id: number;
-      comment: string;
-      malformed: boolean;
-      timestamp: Moment;
-      description: string;
-      amount: number;
-    }[];
-  }> {
-    const res = await this.makeRequest<any>({
-      method: 'GET',
-      path: `/dataset/${dataset}/transactions`,
-    });
-    for (const t of res.transactions) {
-      t.timestamp = parseJsonTimestampValue(t.timestamp);
+    for (const d of res.datasets) {
+      d.created = parseJsonTimestampValue(res.created);
     }
     return res;
   }
@@ -201,27 +202,21 @@ export class Service {
     });
   }
 
-  async getTransactionsByMonth ({
+  async getTransactions ({
     year,
     month,
+    dataset,
   }: {
-    year: number;
-    month: number;
+    year?: number;
+    month?: number;
+    dataset?: number;
   }): Promise<{
-    transactions: {
-      id: number;
-      comment: string;
-      malformed: boolean;
-      timestamp: Moment;
-      description: string;
-      transaction_amount: number;
-      combined_amount: number;
-      combined_categories: number[];
-    }[];
+    transactions: MTransaction[];
   }> {
     const res = await this.makeRequest<any>({
       method: 'GET',
-      path: `/transactions/${year}/${month}`,
+      path: `/transactions`,
+      query: {year, month, dataset},
     });
     for (const t of res.transactions) {
       t.timestamp = parseJsonTimestampValue(t.timestamp);
@@ -280,3 +275,5 @@ export class Service {
     });
   }
 }
+
+export const service = new Service('');
