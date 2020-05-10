@@ -50,7 +50,7 @@ type CommonIDInputProps<M extends boolean> = {
   multiple: M;
 };
 
-// TODO Clean up and improve reliability and performance of IDInput and InvisibleInput.
+// TODO Clean up and improve reliability, determinism, simplicity, and performance of IDInput and InvisibleInput.
 export function IDInput<M extends boolean> ({
   idStore,
   multiple,

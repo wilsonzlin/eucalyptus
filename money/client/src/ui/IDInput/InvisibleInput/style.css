@@ -29,6 +29,7 @@
   font-size: 0.875rem;
   padding: 0.5rem;
   cursor: pointer;
+  width: 100%;
 }
 
 .suggestion:hover {

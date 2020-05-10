@@ -2,15 +2,15 @@ import React, {ChangeEvent, createRef, useCallback, useEffect, useState} from 'r
 import {assertInstanceOf} from '../../../util/Assert';
 import {measureText} from '../../../util/MeasureText';
 import {useServiceFetch} from '../../../util/ServiceFetch';
-import {Flyout} from '../../Flyout/view';
+import {Floating} from '../../Flyout/view';
 import {IDInputOption} from '../view';
 import styles from './style.css';
 
 export type InvisibleInputProps = {
   focused: boolean;
   suggester: (query: string) => Promise<IDInputOption[]>;
-  onInputFocus?(): void;
-  onInputBlur?(): void;
+  onInputFocus? (): void;
+  onInputBlur? (): void;
   onEmptyBackspace (): void;
   onEmptyDelete (): void;
   onEmptyLeftArrow (): void;
@@ -31,6 +31,7 @@ export const InvisibleInput = ({
 }: InvisibleInputProps) => {
   const [value, setValue] = useState<string>('');
   const [width, setWidth] = useState<number>(0);
+  const [suggestionsOpen, setSuggestionsOpen] = useState<boolean>(false);
 
   const $input = createRef<HTMLInputElement>();
   const $suggestions = createRef<HTMLDivElement>();
@@ -51,6 +52,7 @@ export const InvisibleInput = ({
     const value = e.target.value;
     setValue(value);
     setWidth(measureText(value));
+    setSuggestionsOpen(true);
   }, []);
 
   const keyDownHandler = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -100,8 +102,9 @@ export const InvisibleInput = ({
         value={value}
         style={{width: `${width}px`}}
       />
-      <Flyout
-        open={true}
+      <Floating
+        open={suggestionsOpen}
+        onDismiss={() => setSuggestionsOpen(false)}
         top={1}
         left={0}
       >
@@ -110,7 +113,9 @@ export const InvisibleInput = ({
             <button
               key={s.id}
               className={styles.suggestion}
-              onMouseDown={() => {
+              onMouseDown={e => {
+                // When onConfirm is called, the parent IDInput will update the focus, but then this mouseDown will focus this button and undo the focus, so prevent the default behaviour.
+                e.preventDefault();
                 // Listen to mouseDown to run before input's blur, which would otherwise reset and prevent this from clicking.
                 onConfirm(s.id);
                 reset();
@@ -118,7 +123,7 @@ export const InvisibleInput = ({
             >{s.label}</button>
           ))}
         </div>
-      </Flyout>
+      </Floating>
     </div>
   );
 };

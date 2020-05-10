@@ -1,11 +1,13 @@
 const $textMeasure = document.createElement('div');
 Object.assign($textMeasure.style, {
+  left: '100vw',
+  opacity: 0,
+  overflow: 'visible',
+  pointerEvents: 'none',
   position: 'fixed',
   top: '100vh',
-  left: '100vw',
+  whiteSpace: 'nowrap',
   zIndex: -1024,
-  opacity: 0,
-  pointerEvents: 'none',
 });
 document.body.append($textMeasure);
 
