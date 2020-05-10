@@ -16,8 +16,7 @@
 }
 
 .input:focus {
-  /* Show caret. */
-  min-width: 0.125rem;
+  padding: 0 0.25rem;
 }
 
 .suggestions {
