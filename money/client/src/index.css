@@ -2,6 +2,10 @@
   box-sizing: border-box;
 }
 
+*:not(input):not(textarea) {
+  user-select: none;
+}
+
 [hidden] {
   display: none !important;
 }
@@ -20,4 +24,27 @@ body {
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+}
+
+h1, h2, h3, h4, h5, h6,
+p,
+ul, ol, li,
+dl, dt, dd,
+figure, figcaption,
+table, thead, tbody, tfoot, tr, th, td,
+label,
+button, input, select, textarea
+{
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: inherit;
+  display: block;
+  width: 100%;
+  font: inherit;
+  line-height: inherit;
+  text-align: inherit;
+  padding: 0;
+  margin: 0;
+  outline: 0;
 }

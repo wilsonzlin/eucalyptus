@@ -1,0 +1,19 @@
+.moneyNegative {
+  color: red;
+}
+
+.moneyNeutral {
+  color: gray;
+}
+
+.moneyPositive {
+  color: green;
+}
+
+.expense {
+  text-align: right;
+}
+
+.subtleState {
+  color: gray;
+}

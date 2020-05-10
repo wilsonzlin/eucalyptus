@@ -1,5 +1,5 @@
 import React from 'react';
-import {AssertionError} from '../../util/assert';
+import {AssertionError} from '../../util/Assert';
 
 export function HiddenInput<T extends string | number | boolean> ({
   value,

@@ -10,7 +10,8 @@ from flask import Flask, request, g, send_file
 from werkzeug.exceptions import BadRequest
 
 from server.db import prepare_database
-from server.sql import fetch_all_as_dict, Cond, Column, require_one, require_changed_row, JoiningTable, Join
+from server.model import fetch_datasets, fetch_transactions
+from server.sql import fetch_all_as_dict, Cond, Column, require_one, require_changed_row, Join, JoinMethod
 from server.validation import validate_str, validate_int, validate_timestamp, require_json_object_body, parse_money_amount
 
 DATABASE = getenv('EUCALYPTUS_DB')
@@ -90,10 +91,10 @@ def get_dataset_sources():
 def create_dataset(**args):
     source = validate_int(args, 'source', min_val=0, parse_from_str=True)
     opt = request.args
-    timestamp_column = validate_int(opt, 'timestamp', parse_from_str=True)
-    timestamp_format = validate_str(opt, 'format')
-    description_column = validate_int(opt, 'description', parse_from_str=True)
-    amount_column = validate_int(opt, 'amount', parse_from_str=True)
+    timestamp_column = validate_int(opt, 'timestamp_column', parse_from_str=True)
+    timestamp_format = validate_str(opt, 'timestamp_format')
+    description_column = validate_int(opt, 'description_column', parse_from_str=True)
+    amount_column = validate_int(opt, 'amount_column', parse_from_str=True)
 
     c = get_db().cursor()
     # TODO Handle errors
@@ -118,7 +119,7 @@ def create_dataset(**args):
             malformed = True
 
         try:
-            amount = parse_money_amount(row[amount_column])
+            amount = -parse_money_amount(row[amount_column])
         except (IndexError, ValueError):
             amount = 0
             malformed = True
@@ -142,21 +143,15 @@ def create_dataset(**args):
 @server.route("/datasets", methods=['GET'])
 def get_datasets():
     return {
-        "datasets": fetch_all_as_dict(
-            c=get_db().cursor(),
-            table='dataset',
-            cols=(
-                Column('dataset.id', 'id'),
-                Column('dataset.source', 'source_id'),
-                Column('dataset_source.name', 'source_name'),
-                Column('dataset.comment', 'comment'),
-                Column('dataset.created', 'created'),
-            ),
-            joins=(
-                JoiningTable(Join.left, 'dataset_source', "dataset_source.id = dataset.source"),
-            ),
-            where=Cond('TRUE'),
-        )
+        "datasets": fetch_datasets(get_db().cursor(), Cond('TRUE'))
+    }
+
+
+@server.route("/dataset/<dataset>", methods=['GET'])
+def get_dataset(**opt):
+    dataset = validate_int(opt, 'dataset', min_val=0, parse_from_str=True)
+    return {
+        "datasets": fetch_datasets(get_db().cursor(), Cond('dataset.id = ?', dataset))
     }
 
 
@@ -205,6 +200,23 @@ def create_category():
     }
 
 
+@server.route("/categories", methods=['GET'])
+def suggest_categories():
+    opt = request.args
+    suggestions_query = validate_str(opt, 'suggestions_query', min_len=1)
+    return {
+        "suggestions": fetch_all_as_dict(
+            c=get_db().cursor(),
+            table='category',
+            cols=(
+                Column('id'),
+                Column('name', 'label'),
+            ),
+            where=Cond('name LIKE ?', f'{suggestions_query}%'),
+        ),
+    }
+
+
 @server.route("/transactions", methods=['GET'])
 def get_transactions():
     opt = request.args
@@ -220,31 +232,8 @@ def get_transactions():
     if dataset is not None:
         cond += Cond("txn.dataset = ?", dataset)
 
-    transactions = fetch_all_as_dict(
-        c=get_db().cursor(),
-        table='txn',
-        cols=(
-            Column('txn.id', 'id'),
-            Column('txn.comment', 'comment'),
-            Column('txn.malformed', 'malformed'),
-            Column('txn.timestamp', 'timestamp'),
-            Column('txn.description', 'description'),
-            Column('txn.amount', 'transaction_amount'),
-            Column('SUM(txn_part.amount)', 'combined_amount'),
-            Column("GROUP_CONCAT(txn_part.category, ',')", 'combined_categories'),
-        ),
-        joins=(
-            JoiningTable(Join.left, 'txn_part', 'txn_part.txn = txn.id'),
-        ),
-        where=cond,
-        group_by="txn_part.txn"
-    )
-    for t in transactions:
-        raw_combined_categories = t['combined_categories']
-        t['combined_categories'] = [] if not raw_combined_categories else [int(c) for c in raw_combined_categories.split(',')]
-
     return {
-        "transactions": transactions,
+        "transactions": fetch_transactions(get_db().cursor(), cond),
     }
 
 
@@ -280,7 +269,7 @@ def delete_transaction(**args):
     return {}
 
 
-@server.route("/transaction/<transaction>/part", methods=['POST'])
+@server.route("/transaction/<transaction>/parts", methods=['POST'])
 def create_transaction_part(**args):
     transaction = validate_int(args, 'transaction', min_val=0, parse_from_str=True)
     opt = require_json_object_body()
@@ -295,4 +284,26 @@ def create_transaction_part(**args):
     )
     return {
         "id": c.lastrowid,
+    }
+
+
+@server.route("/transaction/<transaction>/parts", methods=['GET'])
+def get_transaction_parts(**args):
+    transaction = validate_int(args, 'transaction', min_val=0, parse_from_str=True)
+    return {
+        "parts": fetch_all_as_dict(
+            c=get_db().cursor(),
+            table='txn_part',
+            cols=(
+                Column('txn_part.id', 'id'),
+                Column('txn_part.comment', 'comment'),
+                Column('txn_part.amount', 'amount'),
+                Column('category.id', 'category_id'),
+                Column('category.name', 'category_name'),
+            ),
+            joins=(
+                Join(JoinMethod.left, 'category', 'txn_part.category = category.id'),
+            ),
+            where=Cond('txn = ?', transaction)
+        )
     }

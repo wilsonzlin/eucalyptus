@@ -47,7 +47,7 @@ def require_json_object_body():
     return body
 
 
-MONEY_AMOUNT_REGEX = re.compile(r'^\s*\$?\s*([0-9]+)\.([0-9]{2})\s*$')
+MONEY_AMOUNT_REGEX = re.compile(r'^\s*\$?\s*(-)?\s*([0-9]+)\.([0-9]{2})\s*$')
 
 
 def parse_bool(raw: str):
@@ -60,8 +60,8 @@ def parse_bool(raw: str):
 
 def parse_money_amount(raw: str):
     try:
-        integer, decimal = MONEY_AMOUNT_REGEX.search(raw).groups()
-        return int(integer) * 100 + int(decimal)
+        negative, integer, decimal = MONEY_AMOUNT_REGEX.search(raw).groups()
+        return (int(integer) * 100 + int(decimal)) * (-1 if negative else 1)
     except (AttributeError, ValueError):
         raise ValueError("Invalid money amount string.")
 
@@ -144,12 +144,14 @@ def validate_bool(
 def validate_timestamp(
         body: Dict,
         prop: str,
+        *,
+        parse_from_str: bool = False,
         optional: Union[bool, datetime] = False,
 ) -> Optional[datetime]:
     unix_ts = _get_or_default(
         body=body,
         prop=prop,
-        parse_from_str=None,
+        parse_from_str=int if parse_from_str else None,
         typ=int,
         optional=optional,
     )

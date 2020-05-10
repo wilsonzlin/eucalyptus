@@ -1,6 +1,9 @@
 .input {
   display: block;
-  width: 100%;
 
   resize: none;
+}
+
+.expand {
+  width: 100%;
 }

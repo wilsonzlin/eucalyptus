@@ -1,5 +1,6 @@
 import React from 'react';
 import {RouteLink} from '../../ui/RouteLink/view';
+import {Dataset} from '../Dataset/view';
 import {Datasets} from '../Datasets/view';
 import {Home} from '../Home/view';
 import styles from './style.css';
@@ -16,6 +17,7 @@ export const App = () => {
 
       <div className={styles.view}>
         <Home/>
+        <Dataset/>
         <Datasets/>
       </div>
     </div>

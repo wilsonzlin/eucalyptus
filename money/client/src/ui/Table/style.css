@@ -1,0 +1,35 @@
+.table {
+
+}
+
+.rowContainer {
+  transition: 0.3s;
+}
+
+.hovering {
+  background: rgba(0, 0, 0, 0.0325);
+}
+
+.selectable {
+  cursor: pointer;
+}
+
+.row {
+  border-top: 1px solid #ccc;
+}
+
+.spacingSparse .row,
+.spacingSparse .cell {
+  padding: 0.25rem;
+}
+
+.spacingNormal .row,
+.spacingNormal .cell {
+  padding: 0.125rem;
+}
+
+.spacingDense .row,
+.spacingDense .cell {
+  padding: 0.0625rem;
+}
+

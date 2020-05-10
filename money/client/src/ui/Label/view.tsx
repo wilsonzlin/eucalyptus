@@ -8,10 +8,10 @@ export const Label = ({
   label: string;
   children: ReactChild | ReactChild[];
 }) => (
-  <label className={styles.label}>
+  <div className={styles.label}>
     <div className={styles.text}>{label}</div>
     <div className={styles.content}>
       {children}
     </div>
-  </label>
+  </div>
 );

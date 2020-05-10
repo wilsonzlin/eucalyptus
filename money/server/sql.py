@@ -1,14 +1,8 @@
 from enum import Enum
 from sqlite3 import Cursor
-from typing import Optional, List, Tuple, Iterable
+from typing import Optional, List, Tuple
 
 from werkzeug.exceptions import NotFound
-
-
-class Join(Enum):
-    inner = 'INNER'
-    left = 'LEFT'
-    right = 'RIGHT'
 
 
 class Column:
@@ -20,8 +14,19 @@ class Column:
         return self.alias or self.expr
 
 
-class JoiningTable:
-    def __init__(self, method: Join, table: str, on: str, alias: Optional[str] = None):
+class DateTimeColumn(Column):
+    def __init__(self, expr: str, alias: Optional[str] = None):
+        super().__init__(f"strftime('%s', {expr})", f'_ts:{alias or expr}')
+
+
+class JoinMethod(Enum):
+    inner = 'INNER'
+    left = 'LEFT'
+    right = 'RIGHT'
+
+
+class Join:
+    def __init__(self, method: JoinMethod, table: str, on: str, alias: Optional[str] = None):
         self.method = method
         self.table = table
         self.on = on
@@ -51,14 +56,14 @@ def fetch_all_as_dict(
         c: Cursor,
         table: str,
         cols: Tuple[Column, ...],
-        joins: Tuple[JoiningTable, ...] = (),
+        joins: Tuple[Join, ...] = (),
         where: Cond,
         group_by: Optional[str] = None,
 ):
     c.execute(f"""
         SELECT {', '.join((f"({col.expr})" for col in cols))}
         FROM {table}
-        {','.join((f'{j.method.value} JOIN {j.table} AS {j.name()} ON ({j.on})' for j in joins))}
+        {' '.join((f'{j.method.value} JOIN {j.table} AS {j.name()} ON ({j.on})' for j in joins))}
         WHERE {where.expr}
         {'' if not group_by else f'GROUP BY {group_by}'}
     """, where.params)

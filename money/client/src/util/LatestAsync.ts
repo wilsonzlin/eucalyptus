@@ -16,4 +16,6 @@ export class LatestAsync {
         }
       });
   });
+
+  readonly cancelAll = () => void this.currentInvokeId++;
 }

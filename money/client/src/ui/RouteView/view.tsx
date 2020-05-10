@@ -63,13 +63,7 @@ const matchRoute = (path: string, route: RouteComponent[]): PathParameters | und
   return pathParameters;
 };
 
-export const RouteView = ({
-  route,
-  children,
-}: {
-  route: string;
-  children: (params: PathParameters) => JSX.Element;
-}) => {
+export function useRoute<T extends PathParameters>(route: string): T {
   const routeComponents = useMemo(() => parseRoute(route), [route]);
 
   const [pathParameters, setPathParameters] = useState<PathParameters | undefined>();
@@ -82,5 +76,16 @@ export const RouteView = ({
     return () => window.removeEventListener('hashchange', hashChangeHandler);
   }, [hashChangeHandler]);
 
+  return pathParameters as any;
+}
+
+export function RouteView<T extends PathParameters>({
+  route,
+  children,
+}: {
+  route: string;
+  children: (params: T) => JSX.Element;
+}) {
+  const pathParameters = useRoute<T>(route);
   return pathParameters ? children(pathParameters) : null;
-};
+}

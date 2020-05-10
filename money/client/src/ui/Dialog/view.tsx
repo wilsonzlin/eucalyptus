@@ -1,5 +1,6 @@
 import React, {ReactChild} from 'react';
 import {Modal} from '../Modal/view';
+import {Heading} from '../Text/view';
 import styles from './styles.css';
 
 export const Dialog = ({
@@ -13,7 +14,7 @@ export const Dialog = ({
 }) => (
   <Modal open={open}>
     <div className={styles.dialog}>
-      <h1 className={styles.title}>{title}</h1>
+      <Heading>{title}</Heading>
       <div className={styles.content}>{children}</div>
     </div>
   </Modal>

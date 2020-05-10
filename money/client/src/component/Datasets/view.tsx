@@ -4,16 +4,20 @@ import {InfoAlert, MaybeErrorAlert} from '../../ui/Alert/view';
 import {PrimaryButton, SecondaryButton} from '../../ui/Button/view';
 import {Dialog} from '../../ui/Dialog/view';
 import {DialogFooter} from '../../ui/DialogFooter/view';
+import {ManagedFileInput} from '../../ui/FileInput/view';
 import {Form} from '../../ui/Form/view';
 import {Label} from '../../ui/Label/view';
+import {Flex} from '../../ui/Layout/view';
 import {ManagedRadioGroup} from '../../ui/RadioGroup/view';
+import {RouteLink} from '../../ui/RouteLink/view';
 import {RouteView} from '../../ui/RouteView/view';
+import {DateTime, Heading} from '../../ui/Text/view';
 import {ManagedTextInput} from '../../ui/TextInput/view';
 import {useServiceFetch} from '../../util/ServiceFetch';
 import styles from './style.css';
 
 export const Datasets = ({}: {}) => {
-  const {data: datasets} = useServiceFetch<MDataset[]>({
+  const {data: datasets, refresh: refreshDatasets} = useServiceFetch<MDataset[]>({
     fetcher: () => service.getDatasets().then(({datasets}) => datasets),
     initial: [],
     dependencies: [],
@@ -30,6 +34,7 @@ export const Datasets = ({}: {}) => {
   const addDatasetHandler = useCallback(async (opt) => {
     try {
       await service.createDataset(opt);
+      refreshDatasets();
       setAddDatasetDialogOpen(false);
     } catch (e) {
       setAddDatasetDialogError(e.message);
@@ -48,21 +53,21 @@ export const Datasets = ({}: {}) => {
     }
   }, []);
 
-
   return (
     <RouteView route="/datasets">
       {() => (
         <div>
-          <h1>Datasets</h1>
+          <Heading>Datasets</Heading>
           <div className={styles.menu}>
             <button onClick={() => setAddDatasetDialogOpen(true)}>Add dataset</button>
           </div>
           <div>
-            {datasets.map(dataset => (
-              <div key={dataset.id}>
-                <div>{dataset.source_name}</div>
-                <div>{dataset.created}</div>
-                <div>{dataset.comment}</div>
+            {datasets.map(({id, source_name, created, comment}) => (
+              <div key={id}>
+                <div>{source_name}</div>
+                <div><DateTime timestamp={created}/></div>
+                <div>{comment}</div>
+                <RouteLink path={`/dataset/${id}`}>View</RouteLink>
               </div>
             ))}
           </div>
@@ -92,6 +97,21 @@ export const Datasets = ({}: {}) => {
                           label: s.name,
                         }))}
                       />
+                      <Label label="Timestamp">
+                        <Flex>
+                          <ManagedTextInput name="timestampColumn" form={form} placeholder="Timestamp column"/>
+                          <ManagedTextInput name="timestampFormat" form={form} placeholder="Timestamp format"/>
+                        </Flex>
+                      </Label>
+                      <Label label="Description">
+                        <ManagedTextInput name="descriptionColumn" form={form} placeholder="Description column"/>
+                      </Label>
+                      <Label label="Amount">
+                        <ManagedTextInput name="amountColumn" form={form} placeholder="Amount column"/>
+                      </Label>
+                      <Label label="Data">
+                        <ManagedFileInput name="data" multiple={false} form={form}/>
+                      </Label>
                       <DialogFooter>
                         <PrimaryButton submit>Add</PrimaryButton>
                         <SecondaryButton onClick={() => setAddDatasetDialogOpen(false)}>Cancel</SecondaryButton>

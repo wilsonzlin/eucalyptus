@@ -1,4 +1,13 @@
-import moment, {Moment} from 'moment';
+import moment, {isMoment, Moment} from 'moment';
+import {createIDStore} from '../ui/IDInput/view';
+
+export type MTransactionPart = {
+  id: number;
+  comment: string;
+  amount: number;
+  category_id: number;
+  category_name: number;
+}
 
 export type MTransaction = {
   id: number;
@@ -8,7 +17,7 @@ export type MTransaction = {
   description: string;
   transaction_amount: number;
   combined_amount: number;
-  combined_categories: number[];
+  combined_categories: { id: number; name: string; }[];
 };
 
 export type MDataset = {
@@ -24,7 +33,19 @@ export type MDatasetSource = {
   name: string;
 };
 
-type QueryParamValue = string | boolean | number | undefined;
+// Query parameters and JSON object body properties might have Moment values, so serialise them to UNIX timestamps as accepted by server.
+const serialiseDateTime = (val: Moment) => val.unix();
+
+// Server JSON object response bodies might have DateTime values, so deserialise them to Moment instances.
+function maybeDeserialiseDateTime (this: any, key: string, val: any) {
+  if (key.startsWith('_ts:')) {
+    this[key.slice(4)] = moment.unix(val);
+  } else {
+    return val;
+  }
+}
+
+type QueryParamValue = string | boolean | number | Moment | undefined;
 
 const encodeQueryParamValue = (value: QueryParamValue): string => {
   switch (typeof value) {
@@ -34,6 +55,11 @@ const encodeQueryParamValue = (value: QueryParamValue): string => {
     return value.toString();
   case 'boolean':
     return value ? '1' : '0';
+  case 'object':
+    if (isMoment(value)) {
+      return serialiseDateTime(value).toString();
+    }
+    // Fall through.
   default:
     throw new TypeError(`Cannot encode ${value} as query parameter value`);
   }
@@ -49,8 +75,6 @@ const encodeQueryParamPairs = (pairs: [string, QueryParamValue][]) => {
     ? ''
     : `?${pairs.map(encodeQueryParamPair).join('&')}`;
 };
-
-const parseJsonTimestampValue = (val: string) => moment(val);
 
 export class ServiceError extends Error {
   private readonly status: number;
@@ -93,12 +117,12 @@ class Service {
             ? [...query.entries()]
             : Object.entries(query),
       );
-      xhr.open(method, `${this.prefix}${path}?${qs}`, true);
+      xhr.open(method, `${this.prefix}${path}${qs}`, true);
       xhr.onreadystatechange = () => {
         if (xhr.readyState === XMLHttpRequest.DONE) {
           const {status, responseText} = xhr;
           if (status >= 200 && status < 300) {
-            resolve(JSON.parse(responseText));
+            resolve(JSON.parse(responseText, maybeDeserialiseDateTime));
           } else {
             reject(new ServiceError(xhr.status, responseText == null ? 'Failed to send request' : responseText));
           }
@@ -111,7 +135,7 @@ class Service {
         xhr.send(null);
       } else {
         xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.send(JSON.stringify(body));
+        xhr.send(JSON.stringify(body, (_, value) => isMoment(value) ? serialiseDateTime(value) : value));
       }
     });
   }
@@ -162,10 +186,10 @@ class Service {
       method: 'POST',
       path: `/dataset_source/${source}/datasets`,
       query: {
-        timestamp: timestampColumn,
-        format: timestampFormat,
-        description: descriptionColumn,
-        amount: amountColumn,
+        timestamp_column: timestampColumn,
+        timestamp_format: timestampFormat,
+        description_column: descriptionColumn,
+        amount_column: amountColumn,
       },
       body: data,
     });
@@ -174,14 +198,21 @@ class Service {
   async getDatasets (): Promise<{
     datasets: MDataset[];
   }> {
-    const res = await this.makeRequest<any>({
+    return await this.makeRequest<any>({
       method: 'GET',
       path: `/datasets`,
     });
-    for (const d of res.datasets) {
-      d.created = parseJsonTimestampValue(res.created);
-    }
-    return res;
+  }
+
+  async getDataset ({
+    dataset,
+  }: {
+    dataset: number;
+  }): Promise<MDataset> {
+    return this.makeRequest<any>({
+      method: 'GET',
+      path: `/dataset/${dataset}`,
+    });
   }
 
   async createCategory ({
@@ -202,6 +233,22 @@ class Service {
     });
   }
 
+  async suggestCategories ({
+    query,
+  }: {
+    query: string;
+  }): Promise<{
+    suggestions: { id: number; label: string; }[];
+  }> {
+    return this.makeRequest({
+      method: 'GET',
+      path: '/categories',
+      query: {
+        suggestions_query: query,
+      },
+    });
+  }
+
   async getTransactions ({
     year,
     month,
@@ -213,15 +260,11 @@ class Service {
   }): Promise<{
     transactions: MTransaction[];
   }> {
-    const res = await this.makeRequest<any>({
+    return await this.makeRequest<any>({
       method: 'GET',
       path: `/transactions`,
       query: {year, month, dataset},
     });
-    for (const t of res.transactions) {
-      t.timestamp = parseJsonTimestampValue(t.timestamp);
-    }
-    return res;
   }
 
   async updateTransaction ({
@@ -270,10 +313,25 @@ class Service {
   }> {
     return this.makeRequest({
       method: 'POST',
-      path: `/transaction/${transaction}/part`,
+      path: `/transaction/${transaction}/parts`,
       body: {comment, amount, category},
+    });
+  }
+
+  async getTransactionParts ({
+    transaction,
+  }: {
+    transaction: number;
+  }): Promise<{
+    parts: MTransactionPart[];
+  }> {
+    return this.makeRequest({
+      method: 'GET',
+      path: `/transaction/${transaction}/parts`,
     });
   }
 }
 
 export const service = new Service('');
+
+export const categoryIDStore = createIDStore(query => service.suggestCategories({query}).then(({suggestions}) => suggestions));

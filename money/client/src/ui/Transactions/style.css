@@ -1,17 +1,15 @@
 .transactions {
-  display: table;
-  border-collapse: collapse;
-  width: 100%;
-}
-
-.headings {
-  display: table-row;
 }
 
 .heading {
-  display: table-cell;
 }
 
-.body {
-  display: table-row-group;
+.list {
+}
+
+.transaction {
+}
+
+.transactionDetails {
+  padding: 1rem;
 }

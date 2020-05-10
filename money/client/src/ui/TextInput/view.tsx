@@ -1,51 +1,43 @@
 import React, {ChangeEvent, useCallback} from 'react';
+import {cls} from '../../util/Classes';
 import {ManagedFormComponentProps, UnmanagedFormComponentProps, useManaged} from '../Form/view';
 import styles from './style.css';
 
 type CommonTextInputProps = {
   lines?: number;
+  columns?: number;
   name?: string;
   placeholder?: string;
-  trim?: boolean;
   autoFocus?: boolean;
 };
 
 export const TextInput = ({
   lines = 1,
+  columns,
   name,
   value,
   placeholder,
-  trim = false,
   autoFocus = false,
   onChange,
 }: CommonTextInputProps & UnmanagedFormComponentProps<string>) => {
   const handleChange = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     let value = e.target.value;
-    if (trim) {
-      value.trim();
+    if (lines === 1) {
+      value = value.replace(/[\r\n\t\v\f]+/, '');
     }
     onChange(value);
   }, []);
 
-  return lines > 1 ? (
+  return (
     <textarea
-      className={styles.input}
+      className={cls(styles.input, !columns && styles.expand)}
+      cols={columns}
       name={name}
       value={value}
       onChange={handleChange}
       placeholder={placeholder}
       autoFocus={autoFocus}
       rows={lines}
-    />
-  ) : (
-    <input
-      className={styles.input}
-      type="text"
-      name={name}
-      value={value}
-      onChange={handleChange}
-      placeholder={placeholder}
-      autoFocus={autoFocus}
     />
   );
 };
