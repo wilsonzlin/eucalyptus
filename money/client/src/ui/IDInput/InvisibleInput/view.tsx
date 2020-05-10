@@ -1,4 +1,4 @@
-import React, {ChangeEvent, createRef, useCallback, useEffect, useState} from 'react';
+import React, {ChangeEvent, createRef, forwardRef, useCallback, useState} from 'react';
 import {assertInstanceOf} from '../../../util/Assert';
 import {measureText} from '../../../util/MeasureText';
 import {useServiceFetch} from '../../../util/ServiceFetch';
@@ -7,10 +7,7 @@ import {IDInputOption} from '../view';
 import styles from './style.css';
 
 export type InvisibleInputProps = {
-  focused: boolean;
   suggester: (query: string) => Promise<IDInputOption[]>;
-  onInputFocus? (): void;
-  onInputBlur? (): void;
   onEmptyBackspace (): void;
   onEmptyDelete (): void;
   onEmptyLeftArrow (): void;
@@ -18,30 +15,19 @@ export type InvisibleInputProps = {
   onConfirm (id: number): void;
 };
 
-export const InvisibleInput = ({
-  focused,
+export const InvisibleInput = forwardRef<HTMLInputElement, InvisibleInputProps>(({
   suggester,
-  onInputFocus,
-  onInputBlur,
   onEmptyBackspace,
   onEmptyDelete,
   onEmptyLeftArrow,
   onEmptyRightArrow,
   onConfirm,
-}: InvisibleInputProps) => {
+}, $inputRef) => {
   const [value, setValue] = useState<string>('');
   const [width, setWidth] = useState<number>(0);
   const [suggestionsOpen, setSuggestionsOpen] = useState<boolean>(false);
 
-  const $input = createRef<HTMLInputElement>();
   const $suggestions = createRef<HTMLDivElement>();
-
-  useEffect(() => {
-    // TODO Don't do this on every render in case we rerender something else in the background and IDInput is not actually focused.
-    if (focused) {
-      $input.current?.focus();
-    }
-  });
 
   const reset = useCallback(() => {
     setValue('');
@@ -54,6 +40,8 @@ export const InvisibleInput = ({
     setWidth(measureText(value));
     setSuggestionsOpen(true);
   }, []);
+
+  const closeSuggestions = useCallback(() => setSuggestionsOpen(false), []);
 
   const keyDownHandler = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     const $input = assertInstanceOf(e.target, HTMLInputElement);
@@ -75,14 +63,9 @@ export const InvisibleInput = ({
     }
   }, [onEmptyBackspace, onEmptyDelete, onEmptyLeftArrow, onEmptyRightArrow]);
 
-  const focusHandler = useCallback(() => {
-    onInputFocus?.();
-  }, [onInputFocus]);
-
   const blurHandler = useCallback(() => {
     reset();
-    onInputBlur?.();
-  }, [onInputBlur]);
+  }, []);
 
   const {data: suggestions} = useServiceFetch<IDInputOption[]>({
     fetcher: async () => !value ? [] : suggester(value),
@@ -93,18 +76,18 @@ export const InvisibleInput = ({
   return (
     <div className={styles.container}>
       <input
-        ref={$input}
+        ref={$inputRef}
+        tabIndex={-1}
         className={styles.input}
         onKeyDown={keyDownHandler}
         onChange={changeHandler}
-        onFocus={focusHandler}
         onBlur={blurHandler}
         value={value}
         style={{width: `${width}px`}}
       />
       <Floating
         open={suggestionsOpen}
-        onDismiss={() => setSuggestionsOpen(false)}
+        onDismiss={closeSuggestions}
         top={1}
         left={0}
       >
@@ -114,7 +97,7 @@ export const InvisibleInput = ({
               key={s.id}
               className={styles.suggestion}
               onMouseDown={e => {
-                // When onConfirm is called, the parent IDInput will update the focus, but then this mouseDown will focus this button and undo the focus, so prevent the default behaviour.
+                // Do not let input lose focus.
                 e.preventDefault();
                 // Listen to mouseDown to run before input's blur, which would otherwise reset and prevent this from clicking.
                 onConfirm(s.id);
@@ -126,4 +109,4 @@ export const InvisibleInput = ({
       </Floating>
     </div>
   );
-};
+});

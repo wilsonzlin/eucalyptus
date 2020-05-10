@@ -1,5 +1,5 @@
 import moment, {isMoment, Moment} from 'moment';
-import {createIDStore} from '../ui/IDInput/view';
+import {IDStore} from '../ui/IDInput/view';
 
 export type MTransactionPart = {
   id: number;
@@ -334,4 +334,4 @@ class Service {
 
 export const service = new Service('');
 
-export const categoryIDStore = createIDStore(query => service.suggestCategories({query}).then(({suggestions}) => suggestions));
+export const categoryIDStore = new IDStore(query => service.suggestCategories({query}).then(({suggestions}) => suggestions));

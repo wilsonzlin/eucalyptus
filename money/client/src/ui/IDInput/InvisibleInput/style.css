@@ -11,13 +11,13 @@
 
   height: 100%;
 
-  padding: 0 0.25rem;
   /* Width is set by measureText, so do not let padding break width. */
   box-sizing: content-box;
 }
 
 .input:focus {
-  margin: 0 0.25rem;
+  /* Show caret. */
+  min-width: 0.125rem;
 }
 
 .suggestions {

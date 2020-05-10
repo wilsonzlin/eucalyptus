@@ -1,4 +1,4 @@
-import React, {createRef, Dispatch, SetStateAction, useCallback, useEffect, useRef, useState} from 'react';
+import React, {createRef, Dispatch, SetStateAction, useCallback, useEffect, useMemo, useState} from 'react';
 import {assertExists, assertInstanceOf} from '../../util/Assert';
 import {ManagedFormComponentProps, UnmanagedFormComponentProps, useManaged} from '../Form/view';
 import {Flex} from '../Layout/view';
@@ -9,71 +9,70 @@ type IDInputValue<M extends boolean> = M extends true ? number[] : (number | und
 
 export type IDInputOption = { id: number; label: string; };
 
-export interface IDStore {
-  use (): { [id: number]: string };
+export class IDStore {
+  private readonly labels: { [id: number]: string } = {};
+  private readonly trackers = new Set<Dispatch<SetStateAction<number>>>();
 
-  addLabels (labels: IDInputOption[]): void;
+  constructor (
+    private readonly suggester: (query: string) => Promise<IDInputOption[]>,
+  ) {
+  }
 
-  suggest (query: string): Promise<IDInputOption[]>;
-}
+  use () {
+    const [_, setTracker] = useState<number>(0);
+    useEffect(() => {
+      this.trackers.add(setTracker);
+      return () => void this.trackers.delete(setTracker);
+    }, []);
+    return this.labels;
+  }
 
-export const createIDStore = (suggester: (query: string) => Promise<IDInputOption[]>): IDStore => {
-  const labels: { [id: number]: string } = {};
-  const trackers = new Set<Dispatch<SetStateAction<number>>>();
-  return {
-    use () {
-      const [_, setTracker] = useState<number>(0);
-      useEffect(() => {
-        trackers.add(setTracker);
-        return () => void trackers.delete(setTracker);
-      }, []);
-      return labels;
-    },
-    addLabels (toAdd) {
-      for (const {id, label} of toAdd) {
-        labels[id] = label;
-      }
-      for (const tracker of trackers) {
-        tracker(x => x + 1);
-      }
-    },
-    async suggest (query) {
-      const res = await suggester(query);
-      this.addLabels(res);
-      return res;
-    },
+  addLabels (toAdd: IDInputOption[]): void {
+    for (const {id, label} of toAdd) {
+      this.labels[id] = label;
+    }
+    for (const tracker of this.trackers) {
+      tracker(x => x + 1);
+    }
+  }
+
+  readonly suggest = async (query: string): Promise<IDInputOption[]> => {
+    const res = await this.suggester(query);
+    this.addLabels(res);
+    return res;
   };
-};
+}
 
 type CommonIDInputProps<M extends boolean> = {
   idStore: IDStore;
   multiple: M;
 };
 
-// TODO Clean up and improve reliability, determinism, simplicity, and performance of IDInput and InvisibleInput.
+const ORDER_0 = {order: 0};
+const ORDER_2 = {order: 2};
+
 export function IDInput<M extends boolean> ({
   idStore,
   multiple,
   value,
   onChange,
 }: CommonIDInputProps<M> & UnmanagedFormComponentProps<IDInputValue<M>>) {
-  const [_, setTick] = useState<number>(0);
-  const focus = useRef<number>(-2);
+  const [inputPosition, setInputPosition] = useState<number>(-1);
 
-  const values = Array<number>().concat(value ?? []);
+  const values = useMemo<number[]>(() => Array<number>().concat(value ?? []), [value]);
 
   const $container = createRef<HTMLDivElement>();
+  const $input = createRef<HTMLInputElement>();
 
   const labels = idStore.use();
 
-  const setFocus = (val: number) => {
-    focus.current = val;
-    setTick(t => t + 1);
-  };
+  const moveInputPosition = useCallback((dir: -1 | 1) => {
+    setInputPosition(Math.max(0, Math.min(values.length, inputPosition + dir)));
+  }, [values, inputPosition]);
 
-  const moveFocus = (dir: -1 | 1) => {
-    setFocus(Math.max(0, Math.min(values.length, (focus.current === -1 ? values.length : focus.current) + dir)));
-  };
+  const previousInputPosition = useCallback(() => moveInputPosition(-1), [moveInputPosition]);
+
+  const nextInputPosition = useCallback(() => moveInputPosition(1), [moveInputPosition]);
 
   const callOnChange = useCallback((newValue: number[]) => {
     const seen = new Set<number>();
@@ -90,67 +89,65 @@ export function IDInput<M extends boolean> ({
     onChange(res);
   }, [onChange]);
 
-  const deleteHandler = (valueIdx: number, backwards: boolean) => {
-    const id = values[valueIdx];
+  const deleteHandler = useCallback((backwards: boolean) => {
+    const id = values[inputPosition - (backwards ? 1 : 0)];
     if (id === undefined) {
       return;
     }
     callOnChange(values.filter(v => v !== id));
     if (backwards) {
-      moveFocus(-1);
+      previousInputPosition();
     }
-  };
+  }, [values, inputPosition, callOnChange, previousInputPosition]);
 
-  // TODO Focus is lost on change.
-  const addHandler = (pos: number, id: number) => {
-    if (focus.current === values.length || focus.current === -1) {
-      setFocus(-1);
-    } else {
-      moveFocus(1);
+  const deletePreviousHandler = useCallback(() => deleteHandler(true), [deleteHandler]);
+
+  const deleteNextHandler = useCallback(() => deleteHandler(false), [deleteHandler]);
+
+  const addHandler = useCallback((id: number) => {
+    callOnChange(!multiple ? [id] : [...values.slice(0, inputPosition), id, ...values.slice(inputPosition)]);
+    setInputPosition(inputPosition + 1);
+  }, [callOnChange, values, inputPosition]);
+
+  const containerFocusHandler = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
+    if (e.target === $container.current) {
+      setInputPosition(values.length);
+      $input.current?.focus();
     }
-    callOnChange(!multiple ? [id] : [...values.slice(0, pos), id, ...values.slice(pos)]);
-  };
-
-  const valueClickHandler = (valIdx: number, e: React.MouseEvent<HTMLDivElement>) => {
-    const $value = assertInstanceOf(e.target, HTMLDivElement);
-    setFocus(valIdx + Math.round((e.clientX - $value.getBoundingClientRect().left) / $value.clientWidth));
-  };
+  }, [$container, values, $input]);
 
   return (
-    <div className={styles.idInput} ref={$container}>
+    <div
+      ref={$container}
+      className={styles.idInput}
+      tabIndex={0}
+      onFocus={containerFocusHandler}
+    >
       <Flex overflow="auto" space="end" align="stretch">
+        {values.map((id, pos) => (
+          <div
+            key={id}
+            className={styles.value}
+            onClick={e => {
+              const $value = assertInstanceOf(e.target, HTMLDivElement);
+              setInputPosition(pos + Math.round((e.clientX - $value.getBoundingClientRect().left) / $value.clientWidth));
+            }}
+            style={pos < inputPosition ? ORDER_0 : ORDER_2}
+          >
+            {assertExists(labels[id])}
+          </div>
+        ))}
         <div className={styles.valueInput}>
           <InvisibleInput
-            focused={focus.current === 0 || (focus.current === -1 && !values.length)}
-            suggester={query => idStore.suggest(query)}
-            onInputFocus={() => setFocus(0)}
-            onEmptyBackspace={() => void 0}
-            onEmptyDelete={() => deleteHandler(0, false)}
-            onEmptyLeftArrow={() => void 0}
-            onEmptyRightArrow={() => moveFocus(1)}
-            onConfirm={id => addHandler(0, id)}
+            ref={$input}
+            suggester={idStore.suggest}
+            onEmptyLeftArrow={previousInputPosition}
+            onEmptyRightArrow={nextInputPosition}
+            onEmptyBackspace={deletePreviousHandler}
+            onEmptyDelete={deleteNextHandler}
+            onConfirm={addHandler}
           />
         </div>
-        {values.map((id, pos) => (
-          <React.Fragment key={id}>
-            <div className={styles.value} onClick={e => valueClickHandler(pos, e)}>
-              {assertExists(labels[id])}
-            </div>
-            <div className={styles.valueInput}>
-              <InvisibleInput
-                focused={focus.current === pos + 1 || (focus.current === -1 && pos === values.length - 1)}
-                suggester={query => idStore.suggest(query)}
-                onInputFocus={() => setFocus(pos + 1)}
-                onEmptyLeftArrow={() => moveFocus(-1)}
-                onEmptyRightArrow={() => moveFocus(1)}
-                onEmptyBackspace={() => deleteHandler(pos, true)}
-                onEmptyDelete={() => deleteHandler(pos + 1, false)}
-                onConfirm={id => addHandler(pos + 1, id)}
-              />
-            </div>
-          </React.Fragment>
-        ))}
-        <div className={styles.endClickTarget} onClick={() => setFocus(values.length)}/>
       </Flex>
     </div>
   );

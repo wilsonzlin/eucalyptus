@@ -1,17 +1,7 @@
 .idInput {
   border: 1px solid #ccc;
   background: rgba(0, 0, 0, 0.01);
-  padding: 0.5rem 0;
-}
-
-.value {
-  background: skyblue;
-  color: white;
-  white-space: nowrap;
-  border-radius: 0.25rem;
-  height: 100%;
-  padding: 0 0.25rem;
-  cursor: text;
+  padding: 0.5rem 0.25rem;
 }
 
 .value, .valueInput {
@@ -20,7 +10,17 @@
   height: 1.25rem;
 }
 
-.endClickTarget {
+.value {
+  background: skyblue;
+  color: white;
+  white-space: nowrap;
+  border-radius: 0.25rem;
+  padding: 0 0.25rem;
   cursor: text;
-  flex-grow: 1;
+
+  margin: 0 0.25rem;
+}
+
+.valueInput {
+  order: 1;
 }
