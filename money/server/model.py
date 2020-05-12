@@ -1,12 +1,14 @@
 from sqlite3 import Cursor
 
-from server.sql import Cond, fetch_all_as_dict, Column, Join, JoinMethod, DateTimeColumn
+from server.sql import Cond, fetch_all_as_dict, Column, Join, JoinMethod, DateTimeColumn, Table
 
 
 def fetch_datasets(c: Cursor, where: Cond):
     return fetch_all_as_dict(
         c=c,
-        table='dataset',
+        tables=(
+            Table('dataset'),
+        ),
         cols=(
             Column('dataset.id', 'id'),
             Column('dataset.source', 'source_id'),
@@ -15,7 +17,7 @@ def fetch_datasets(c: Cursor, where: Cond):
             DateTimeColumn('dataset.created', 'created'),
         ),
         joins=(
-            Join(JoinMethod.left, 'dataset_source', "dataset_source.id = dataset.source"),
+            Join(JoinMethod.left, Table('dataset_source'), "dataset_source.id = dataset.source"),
         ),
         where=where,
     )
@@ -24,7 +26,9 @@ def fetch_datasets(c: Cursor, where: Cond):
 def fetch_transactions(c: Cursor, where: Cond):
     transactions = fetch_all_as_dict(
         c=c,
-        table='txn',
+        tables=(
+            Table('txn'),
+        ),
         cols=(
             Column('txn.id', 'id'),
             Column('txn.comment', 'comment'),
@@ -37,11 +41,11 @@ def fetch_transactions(c: Cursor, where: Cond):
             Column("GROUP_CONCAT(category.name, '\1')", 'combined_category_names'),
         ),
         joins=(
-            Join(JoinMethod.left, 'txn_part', 'txn_part.txn = txn.id'),
-            Join(JoinMethod.left, 'category', 'txn_part.category = category.id'),
-            Join(JoinMethod.left, 'txn_part_project', 'txn_part_project.txn_part = txn_part.id'),
-            Join(JoinMethod.left, 'txn_part_entity', 'txn_part_entity.txn_part = txn_part.id'),
-            Join(JoinMethod.left, 'txn_part_tag', 'txn_part_tag.txn_part = txn_part.id'),
+            Join(JoinMethod.left, Table('txn_part'), 'txn_part.txn = txn.id'),
+            Join(JoinMethod.left, Table('category'), 'txn_part.category = category.id'),
+            Join(JoinMethod.left, Table('txn_part_project'), 'txn_part_project.txn_part = txn_part.id'),
+            Join(JoinMethod.left, Table('txn_part_entity'), 'txn_part_entity.txn_part = txn_part.id'),
+            Join(JoinMethod.left, Table('txn_part_tag'), 'txn_part_tag.txn_part = txn_part.id'),
         ),
         where=where,
         group_by="txn_part.txn"

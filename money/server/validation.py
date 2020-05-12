@@ -16,12 +16,21 @@ class MalformedInputException(BadRequest):
 T = TypeVar('T')
 
 
+class Null:
+    def __eq__(self, other):
+        return isinstance(other, Null)
+
+
+NULL = Null()
+
+
 def _get_or_default(
         *,
         body: Dict,
         prop: str,
         parse_from_str: Optional[Callable[[str], T]],
         typ: Type,
+        nullable: bool,
         optional: Union[bool, T],
 ) -> Optional[T]:
     if prop not in body:
@@ -30,6 +39,8 @@ def _get_or_default(
         return None if optional == True else optional
     else:
         val = body[prop]
+        if val is None and nullable:
+            return NULL
         if type(val) != typ:
             if type(val) == str and parse_from_str:
                 try:
@@ -72,6 +83,7 @@ def validate_str(
         *,
         min_len: Optional[int] = None,
         max_len: Optional[int] = None,
+        nullable: bool = False,
         optional: Union[bool, str] = False,
 ) -> Optional[str]:
     val = _get_or_default(
@@ -79,9 +91,10 @@ def validate_str(
         prop=prop,
         parse_from_str=None,
         typ=str,
+        nullable=nullable,
         optional=optional,
     )
-    if val is None:
+    if val is None or val is NULL:
         return val
 
     if min_len is not None and len(val) < min_len:
@@ -100,6 +113,7 @@ def validate_int(
         parse_from_str: bool = False,
         min_val: Optional[int] = None,
         max_val: Optional[int] = None,
+        nullable: bool = False,
         optional: Union[bool, int] = False,
 ) -> Optional[int]:
     val = _get_or_default(
@@ -107,9 +121,10 @@ def validate_int(
         prop=prop,
         parse_from_str=None if not parse_from_str else int,
         typ=int,
+        nullable=nullable,
         optional=optional,
     )
-    if val is None:
+    if val is None or val is NULL:
         return val
 
     if min_val is not None and val < min_val:
@@ -126,6 +141,7 @@ def validate_bool(
         prop: str,
         *,
         parse_from_str: bool = False,
+        nullable: bool = False,
         optional: Union[bool, bool] = False,
 ) -> Optional[int]:
     val = _get_or_default(
@@ -133,9 +149,10 @@ def validate_bool(
         prop=prop,
         parse_from_str=None if not parse_from_str else parse_bool,
         typ=bool,
+        nullable=nullable,
         optional=optional,
     )
-    if val is None:
+    if val is None or val is NULL:
         return val
 
     return val
@@ -146,6 +163,7 @@ def validate_timestamp(
         prop: str,
         *,
         parse_from_str: bool = False,
+        nullable: bool = False,
         optional: Union[bool, datetime] = False,
 ) -> Optional[datetime]:
     unix_ts = _get_or_default(
@@ -153,9 +171,10 @@ def validate_timestamp(
         prop=prop,
         parse_from_str=int if parse_from_str else None,
         typ=int,
+        nullable=nullable,
         optional=optional,
     )
-    if unix_ts is None:
+    if unix_ts is None or unix_ts is NULL:
         return None
     val = datetime.utcfromtimestamp(unix_ts)
 

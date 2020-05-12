@@ -1,5 +1,4 @@
 .table {
-
 }
 
 .rowContainer {
@@ -12,6 +11,10 @@
 
 .selectable {
   cursor: pointer;
+}
+
+.rowContainer:last-child {
+  border-bottom: 1px solid #ccc;
 }
 
 .row {

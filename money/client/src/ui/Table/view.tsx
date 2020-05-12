@@ -1,6 +1,7 @@
 import React, {ReactChild, useCallback, useState} from 'react';
 import {camelCase, cls} from '../../util/Classes';
 import {Flex} from '../Layout/view';
+import {Label} from '../Text/view';
 import styles from './style.css';
 
 type RowProps = {
@@ -74,7 +75,9 @@ export const Table = ({
     {heading && (
       <Flex>
         {columns.map((c, i) => (
-          <div key={i} className={cls(styles.heading, styles.cell)} style={{width: `${c.width * 100}%`}}>{c.label}</div>
+          <div key={i} className={cls(styles.heading, styles.cell)} style={{width: `${c.width * 100}%`}}>
+            <Label>{c.label}</Label>
+          </div>
         ))}
       </Flex>
     )}

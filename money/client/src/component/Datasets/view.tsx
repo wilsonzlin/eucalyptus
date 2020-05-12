@@ -6,7 +6,7 @@ import {Dialog} from '../../ui/Dialog/view';
 import {DialogFooter} from '../../ui/DialogFooter/view';
 import {ManagedFileInput} from '../../ui/FileInput/view';
 import {Form} from '../../ui/Form/view';
-import {Label} from '../../ui/Label/view';
+import {Labelled} from '../../ui/Labelled/view';
 import {Flex} from '../../ui/Layout/view';
 import {ManagedRadioGroup} from '../../ui/RadioGroup/view';
 import {RouteLink} from '../../ui/RouteLink/view';
@@ -59,7 +59,7 @@ export const Datasets = ({}: {}) => {
         <div>
           <Heading>Datasets</Heading>
           <div className={styles.menu}>
-            <button onClick={() => setAddDatasetDialogOpen(true)}>Add dataset</button>
+            <SecondaryButton onClick={() => setAddDatasetDialogOpen(true)}>Add dataset</SecondaryButton>
           </div>
           <div>
             {datasets.map(({id, source_name, created, comment}) => (
@@ -97,21 +97,21 @@ export const Datasets = ({}: {}) => {
                           label: s.name,
                         }))}
                       />
-                      <Label label="Timestamp">
+                      <Labelled label="Timestamp">
                         <Flex>
                           <ManagedTextInput name="timestampColumn" form={form} placeholder="Timestamp column"/>
                           <ManagedTextInput name="timestampFormat" form={form} placeholder="Timestamp format"/>
                         </Flex>
-                      </Label>
-                      <Label label="Description">
+                      </Labelled>
+                      <Labelled label="Description">
                         <ManagedTextInput name="descriptionColumn" form={form} placeholder="Description column"/>
-                      </Label>
-                      <Label label="Amount">
+                      </Labelled>
+                      <Labelled label="Amount">
                         <ManagedTextInput name="amountColumn" form={form} placeholder="Amount column"/>
-                      </Label>
-                      <Label label="Data">
+                      </Labelled>
+                      <Labelled label="Data">
                         <ManagedFileInput name="data" multiple={false} form={form}/>
-                      </Label>
+                      </Labelled>
                       <DialogFooter>
                         <PrimaryButton submit>Add</PrimaryButton>
                         <SecondaryButton onClick={() => setAddDatasetDialogOpen(false)}>Cancel</SecondaryButton>
@@ -128,8 +128,8 @@ export const Datasets = ({}: {}) => {
             <Form onSubmit={addDatasetSourceHandler}>
               {form => (
                 <>
-                  <Label label="Name"><ManagedTextInput form={form} name="name" autoFocus/></Label>
-                  <Label label="Comment"><ManagedTextInput form={form} name="comment" lines={3}/></Label>
+                  <Labelled label="Name"><ManagedTextInput form={form} name="name" autoFocus/></Labelled>
+                  <Labelled label="Comment"><ManagedTextInput form={form} name="comment" lines={3}/></Labelled>
                   <DialogFooter>
                     <PrimaryButton submit>Add</PrimaryButton>
                     <SecondaryButton onClick={() => setAddDatasetSourceDialogOpen(false)}>Cancel</SecondaryButton>

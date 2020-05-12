@@ -17,5 +17,7 @@ export class LatestAsync {
       });
   });
 
-  readonly cancelAll = () => void this.currentInvokeId++;
+  readonly cancelAll = (): void => {
+    this.currentInvokeId++;
+  };
 }

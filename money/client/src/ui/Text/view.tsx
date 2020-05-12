@@ -33,7 +33,7 @@ export const InlineExpense = ({
   cents: number;
 }) => (
   <span className={cls(cents > 0 ? styles.moneyNegative : cents == 0 ? styles.moneyNeutral : styles.moneyPositive)}>
-    {(Math.abs(cents) / 100).toFixed(2)}
+    {cents < 0 && '+'}{(Math.abs(cents) / 100).toFixed(2)}
   </span>
 );
 
@@ -51,4 +51,12 @@ export const SubtleState = ({
   children: string;
 }) => (
   <span className={styles.subtleState}>{children}</span>
+);
+
+export const Label = ({
+  children,
+}: {
+  children: string;
+}) => (
+  <div className={styles.label}>{children}</div>
 );

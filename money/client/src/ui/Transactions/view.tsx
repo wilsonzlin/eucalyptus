@@ -3,7 +3,7 @@ import {categoryIDStore, MTransaction, MTransactionPart, service} from '../../se
 import {useServiceFetch} from '../../util/ServiceFetch';
 import {IDInput} from '../IDInput/view';
 import {IndependentInput} from '../IndependentInput/view';
-import {Label} from '../Label/view';
+import {Labelled} from '../Labelled/view';
 import {Flex, Margin} from '../Layout/view';
 import {Table} from '../Table/view';
 import {DateTime, Expense, SubtleState} from '../Text/view';
@@ -33,19 +33,18 @@ const TransactionDetails = ({
   return (
     <div className={styles.transactionDetails}>
       <Flex>
-        <Label label="Comment">
+        <Labelled label="Comment">
           <TextInput lines={5} columns={50} value={comment} onChange={() => void 0}/>
-        </Label>
-        <Label label="Transaction amount">
+        </Labelled>
+        <Labelled label="Transaction amount">
           <Expense cents={transaction_amount}/>
-        </Label>
+        </Labelled>
       </Flex>
 
       <Margin height={1}/>
 
-      <Label label="Parts">
+      <Labelled label="Parts">
         <Table
-          heading={false}
           spacing="dense"
           columns={[
             {width: 0.5, label: 'Comment'},
@@ -57,8 +56,11 @@ const TransactionDetails = ({
             cells: [
               <div>{p.comment || <SubtleState>No comment</SubtleState>}</div>,
               <IndependentInput<number | undefined>
-                initialValue={undefined}
-                onChange={async (val) => void 0 /* TODO */}
+                initialValue={p.category_id ?? undefined}
+                onChange={val => service.updateTransactionPart({
+                  transactionPart: p.id,
+                  category: val ?? null,
+                })}
                 Input={({value, onChange}) => (
                   <IDInput
                     idStore={categoryIDStore}
@@ -72,7 +74,7 @@ const TransactionDetails = ({
             ],
           }))}
         />
-      </Label>
+      </Labelled>
     </div>
   );
 };

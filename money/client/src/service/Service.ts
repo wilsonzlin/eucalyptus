@@ -1,12 +1,19 @@
 import moment, {isMoment, Moment} from 'moment';
 import {IDStore} from '../ui/IDInput/view';
 
+export type MCategory = {
+  id: number;
+  name: string;
+  comment: string;
+  depth: number;
+}
+
 export type MTransactionPart = {
   id: number;
   comment: string;
   amount: number;
-  category_id: number;
-  category_name: number;
+  category_id: number | null;
+  category_name: number | null;
 }
 
 export type MTransaction = {
@@ -249,6 +256,15 @@ class Service {
     });
   }
 
+  async getCategories (): Promise<{
+    categories: MCategory[];
+  }> {
+    return this.makeRequest({
+      method: 'GET',
+      path: '/categories',
+    });
+  }
+
   async getTransactions ({
     year,
     month,
@@ -325,9 +341,33 @@ class Service {
   }): Promise<{
     parts: MTransactionPart[];
   }> {
-    return this.makeRequest({
+    const res = await this.makeRequest<any>({
       method: 'GET',
       path: `/transaction/${transaction}/parts`,
+    });
+    categoryIDStore.addLabels(
+      res.parts
+        .map((p: any) => ({id: p.category_id, label: p.category_name}))
+        .filter(({id}: any) => id != null),
+    );
+    return res;
+  }
+
+  async updateTransactionPart ({
+    transactionPart,
+    comment,
+    amount,
+    category,
+  }: {
+    transactionPart: number;
+    comment?: string;
+    amount?: number;
+    category?: number | null;
+  }): Promise<{}> {
+    return this.makeRequest({
+      method: 'PATCH',
+      path: `/transaction_part/${transactionPart}`,
+      body: {comment, amount, category},
     });
   }
 }

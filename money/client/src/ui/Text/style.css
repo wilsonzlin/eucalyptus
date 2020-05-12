@@ -17,3 +17,9 @@
 .subtleState {
   color: gray;
 }
+
+.label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: gray;
+}

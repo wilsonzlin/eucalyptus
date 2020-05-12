@@ -1,20 +1,14 @@
-import csv
-import json
-import sqlite3
-from datetime import datetime
-from io import StringIO
-from os import getenv
 from os.path import dirname, realpath, join, abspath
 
-from flask import Flask, request, g, send_file
-from werkzeug.exceptions import BadRequest
+from flask import Flask, g, send_file
 
+from server.api._common import DATABASE
+from server.api.category import category_api
+from server.api.dataset import dataset_api
+from server.api.dataset_source import dataset_source_api
+from server.api.transaction import transaction_api
+from server.api.transaction_part import transaction_part_api
 from server.db import prepare_database
-from server.model import fetch_datasets, fetch_transactions
-from server.sql import fetch_all_as_dict, Cond, Column, require_one, require_changed_row, Join, JoinMethod
-from server.validation import validate_str, validate_int, validate_timestamp, require_json_object_body, parse_money_amount
-
-DATABASE = getenv('EUCALYPTUS_DB')
 
 PROJ_DIR = realpath(join(dirname(abspath(__file__)), '..'))
 DATABASE_SCHEMAS_DIR = join(PROJ_DIR, 'db')
@@ -28,13 +22,6 @@ server = Flask(
     static_url_path='',
     static_folder=CLIENT_BUILD_DIR,
 )
-
-
-def get_db():
-    db = getattr(g, '_database', None)
-    if db is None:
-        db = g._database = sqlite3.connect(DATABASE)
-    return db
 
 
 @server.teardown_request
@@ -59,251 +46,8 @@ def root():
     return send_file(CLIENT_BUILD_PAGE, cache_timeout=0)
 
 
-@server.route("/dataset_sources", methods=['POST'])
-def create_dataset_source():
-    opt = require_json_object_body()
-    name = validate_str(opt, 'name', min_len=1)
-    comment = validate_str(opt, 'comment', optional='')
-    c = get_db().cursor()
-    # TODO Handle errors
-    c.execute("INSERT INTO dataset_source (name, comment) VALUES (?, ?)", (name, comment))
-    return {
-        "id": c.lastrowid,
-    }
-
-
-@server.route("/dataset_sources", methods=['GET'])
-def get_dataset_sources():
-    return {
-        "sources": fetch_all_as_dict(
-            c=get_db().cursor(),
-            table='dataset_source',
-            cols=(
-                Column('id'),
-                Column('name'),
-            ),
-            where=Cond('TRUE'),
-        ),
-    }
-
-
-@server.route("/dataset_source/<source>/datasets", methods=['POST'])
-def create_dataset(**args):
-    source = validate_int(args, 'source', min_val=0, parse_from_str=True)
-    opt = request.args
-    timestamp_column = validate_int(opt, 'timestamp_column', parse_from_str=True)
-    timestamp_format = validate_str(opt, 'timestamp_format')
-    description_column = validate_int(opt, 'description_column', parse_from_str=True)
-    amount_column = validate_int(opt, 'amount_column', parse_from_str=True)
-
-    c = get_db().cursor()
-    # TODO Handle errors
-    c.execute("INSERT INTO dataset (source, comment, created) VALUES (?, '', DATETIME('now'))", (source,))
-    dataset_id = c.lastrowid
-    for row in csv.reader(StringIO(request.get_data(as_text=True))):
-        raw = json.dumps(row)
-        malformed = False
-
-        try:
-            # TODO Convert to UTC
-            timestamp = datetime.strptime(row[timestamp_column], timestamp_format)
-        except (IndexError, ValueError):
-            # TODO Convert to UTC
-            timestamp = datetime.now()
-            malformed = True
-
-        try:
-            description = row[description_column]
-        except IndexError:
-            description = ''
-            malformed = True
-
-        try:
-            amount = -parse_money_amount(row[amount_column])
-        except (IndexError, ValueError):
-            amount = 0
-            malformed = True
-
-        c.execute(
-            "INSERT INTO txn (dataset, raw, comment, malformed, timestamp, description, amount) VALUES (?, ?, '', ?, ?, ?, ?)",
-            (dataset_id, raw, malformed, timestamp, description, amount)
-        )
-        transaction_id = c.lastrowid
-        if not malformed:
-            c.execute(
-                "INSERT INTO txn_part (txn, comment, amount, category) VALUES (?, '', ?, NULL)",
-                (transaction_id, amount)
-            )
-
-    return {
-        "id": dataset_id,
-    }
-
-
-@server.route("/datasets", methods=['GET'])
-def get_datasets():
-    return {
-        "datasets": fetch_datasets(get_db().cursor(), Cond('TRUE'))
-    }
-
-
-@server.route("/dataset/<dataset>", methods=['GET'])
-def get_dataset(**opt):
-    dataset = validate_int(opt, 'dataset', min_val=0, parse_from_str=True)
-    return {
-        "datasets": fetch_datasets(get_db().cursor(), Cond('dataset.id = ?', dataset))
-    }
-
-
-@server.route("/categories", methods=['POST'])
-def create_category():
-    opt = require_json_object_body()
-    name = validate_str(opt, 'name')
-    target = validate_int(opt, 'target', min_val=0, optional=True)
-    mode = validate_str(opt, 'mode')
-
-    # TODO Lock table
-    c = get_db().cursor()
-
-    if target is None:
-        if mode != 'root':
-            raise BadRequest('Target is missing')
-        if c.execute("SELECT COUNT(*) FROM category").fetchone()[0] != 0:
-            raise BadRequest('Root already exists')
-        target_start = -1
-        mode = 'first'
-    else:
-        c.execute("SELECT set_start, set_end FROM category WHERE id = ?", (target,))
-        target_start, target_end = require_one(c.fetchall())
-
-    if mode == 'after':
-        shift_greater_than = target_end
-    elif mode == 'before':
-        shift_greater_than = target_start - 1
-    elif mode == 'first':
-        shift_greater_than = target_start
-    else:
-        raise BadRequest('Invalid mode')
-
-    c.execute("UPDATE category SET set_start = set_start + 2 WHERE set_start > ?", (shift_greater_than,))
-    c.execute("UPDATE category SET set_end = set_end + 2 WHERE set_end > ?", (shift_greater_than,))
-    # TODO Handle unique
-    c.execute(
-        "INSERT INTO category (name, comment, set_start, set_end) VALUES (?, '', ?, ?)",
-        (name, shift_greater_than + 1, shift_greater_than + 2)
-    )
-
-    category_id = c.lastrowid
-    # TODO Unlock table
-    return {
-        "id": category_id,
-    }
-
-
-@server.route("/categories", methods=['GET'])
-def suggest_categories():
-    opt = request.args
-    suggestions_query = validate_str(opt, 'suggestions_query', min_len=1)
-    return {
-        "suggestions": fetch_all_as_dict(
-            c=get_db().cursor(),
-            table='category',
-            cols=(
-                Column('id'),
-                Column('name', 'label'),
-            ),
-            where=Cond('name LIKE ?', f'{suggestions_query}%'),
-        ),
-    }
-
-
-@server.route("/transactions", methods=['GET'])
-def get_transactions():
-    opt = request.args
-    year = validate_int(opt, 'year', min_val=0, max_val=9999, parse_from_str=True, optional=True)
-    month = validate_int(opt, 'month', min_val=1, max_val=12, parse_from_str=True, optional=True)
-    dataset = validate_int(opt, 'dataset', min_val=0, parse_from_str=True, optional=True)
-
-    cond = Cond('TRUE')
-    if month is not None:
-        cond += Cond("strftime(%m, txn.timestamp) = ?", f'{month:02}')
-    if year is not None:
-        cond += Cond("strftime(%Y, txn.timestamp) = ?", f'{year:04}')
-    if dataset is not None:
-        cond += Cond("txn.dataset = ?", dataset)
-
-    return {
-        "transactions": fetch_transactions(get_db().cursor(), cond),
-    }
-
-
-@server.route("/transaction/<transaction>", methods=['PATCH'])
-def update_transaction(**args):
-    transaction = validate_int(args, 'transaction', min_val=0, parse_from_str=True)
-    opt = require_json_object_body()
-    comment = validate_str(opt, 'comment', optional=True)
-    timestamp = validate_timestamp(opt, 'timestamp', optional=True)
-    description = validate_str(opt, 'description', optional=True)
-    amount = validate_int(opt, 'amount', optional=True)
-    updates = [(col, val) for col, val in (
-        ('comment', comment),
-        ('timestamp', timestamp),
-        ('description', description),
-        ('amount', amount),
-    ) if val is not None]
-    c = get_db().cursor()
-    c.execute(
-        f"UPDATE txn SET malformed = FALSE, {','.join((f'{col} = ?' for (col, _) in updates))} WHERE id = ?",
-        (*(val for (_, val) in updates), transaction)
-    )
-    require_changed_row(c.rowcount)
-    return {}
-
-
-@server.route("/transaction/<transaction>", methods=['DELETE'])
-def delete_transaction(**args):
-    transaction = validate_int(args, 'transaction', min_val=0, parse_from_str=True)
-    c = get_db().cursor()
-    c.execute("DELETE FROM txn WHERE id = ?", (transaction,))
-    require_changed_row(c.rowcount)
-    return {}
-
-
-@server.route("/transaction/<transaction>/parts", methods=['POST'])
-def create_transaction_part(**args):
-    transaction = validate_int(args, 'transaction', min_val=0, parse_from_str=True)
-    opt = require_json_object_body()
-    comment = validate_str(opt, 'comment', optional='')
-    amount = validate_int(opt, 'amount', min_val=0)
-    category = validate_int(opt, 'category', optional=True)
-
-    c = get_db().cursor()
-    c.execute(
-        "INSERT INTO txn_part (txn, comment, amount, category) VALUES (?, ?, ?, ?)",
-        (transaction, comment, amount, category)
-    )
-    return {
-        "id": c.lastrowid,
-    }
-
-
-@server.route("/transaction/<transaction>/parts", methods=['GET'])
-def get_transaction_parts(**args):
-    transaction = validate_int(args, 'transaction', min_val=0, parse_from_str=True)
-    return {
-        "parts": fetch_all_as_dict(
-            c=get_db().cursor(),
-            table='txn_part',
-            cols=(
-                Column('txn_part.id', 'id'),
-                Column('txn_part.comment', 'comment'),
-                Column('txn_part.amount', 'amount'),
-                Column('category.id', 'category_id'),
-                Column('category.name', 'category_name'),
-            ),
-            joins=(
-                Join(JoinMethod.left, 'category', 'txn_part.category = category.id'),
-            ),
-            where=Cond('txn = ?', transaction)
-        )
-    }
+server.register_blueprint(category_api)
+server.register_blueprint(dataset_api)
+server.register_blueprint(dataset_source_api)
+server.register_blueprint(transaction_api)
+server.register_blueprint(transaction_part_api)

@@ -2,13 +2,13 @@ import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {LatestAsync} from '../../util/LatestAsync';
 import {MaybeErrorAlert} from '../Alert/view';
 
-export function IndependentInput<V> ({
+export function IndependentInput<V, OnChange> ({
   initialValue,
   onChange,
   Input,
 }: {
   initialValue: V;
-  onChange: (value: V) => Promise<void>;
+  onChange: (value: V) => Promise<OnChange>;
   Input: (props: { value: V, onChange: (value: V) => void }) => JSX.Element;
 }) {
   const [value, setValue] = useState<V>(initialValue);
@@ -17,9 +17,7 @@ export function IndependentInput<V> ({
 
   const latestAsync = useRef<LatestAsync>(new LatestAsync());
 
-  useEffect(() => {
-    latestAsync.current.cancelAll();
-  });
+  useEffect(() => latestAsync.current.cancelAll());
 
   const changeHandler = useCallback(async (value: V) => {
     setValue(value);

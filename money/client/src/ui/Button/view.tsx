@@ -5,7 +5,7 @@ import styles from './style.css';
 type ButtonProps = {
   children: ReactChild | ReactChild[];
   submit?: boolean;
-  type: 'primary' | 'secondary' | 'warning' | 'error';
+  type: 'primary' | 'secondary' | 'cautious' | 'dangerous';
   onClick?: () => void;
 };
 
@@ -23,4 +23,5 @@ const Button = ({
 );
 
 export const PrimaryButton = (props: Omit<ButtonProps, 'type'>) => Button({...props, type: 'primary'});
+
 export const SecondaryButton = (props: Omit<ButtonProps, 'type'>) => Button({...props, type: 'secondary'});
