@@ -56,6 +56,7 @@ class Cond:
         assert isinstance(other, Cond)
         self.expr = f'({self.expr}) AND ({other.expr})'
         self.params += other.params
+        return self
 
 
 def fetch_all_as_dict(

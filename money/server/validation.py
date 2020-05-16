@@ -1,5 +1,5 @@
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Union, TypeVar, Type, Callable
 
 from flask import request
@@ -176,6 +176,6 @@ def validate_timestamp(
     )
     if unix_ts is None or unix_ts is NULL:
         return None
-    val = datetime.utcfromtimestamp(unix_ts)
+    val = datetime.fromtimestamp(unix_ts, tz=timezone.utc)
 
     return val

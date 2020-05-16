@@ -27,13 +27,25 @@ export const DateTime = ({
   <time dateTime={timestamp.toISOString()} title={timestamp.toString()}>{timestamp.format('d MMM YYYY')}</time>
 );
 
+const formatExpense = (amount: number): string => {
+  const prefix = amount < 0 ? '+' : '';
+  const digits = Math.abs(amount).toString();
+  const cents = digits.slice(-2);
+  const dollars = digits.slice(0, -2);
+  const parts = [];
+  for (let end = dollars.length; end > 0; end -= 3) {
+    parts.unshift(dollars.slice(Math.max(0, end - 3), end));
+  }
+  return `${prefix}${parts.join(',') || '0'}.${cents}`;
+};
+
 export const InlineExpense = ({
   cents,
 }: {
   cents: number;
 }) => (
   <span className={cls(cents > 0 ? styles.moneyNegative : cents == 0 ? styles.moneyNeutral : styles.moneyPositive)}>
-    {cents < 0 && '+'}{(Math.abs(cents) / 100).toFixed(2)}
+    {formatExpense(cents)}
   </span>
 );
 

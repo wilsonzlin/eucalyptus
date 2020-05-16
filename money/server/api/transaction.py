@@ -11,17 +11,20 @@ transaction_api = Blueprint('transaction_api', __name__)
 @transaction_api.route("/transactions", methods=['GET'])
 def get_transactions():
     opt = request.args
-    year = validate_int(opt, 'year', min_val=0, max_val=9999, parse_from_str=True, optional=True)
-    month = validate_int(opt, 'month', min_val=1, max_val=12, parse_from_str=True, optional=True)
+    dt_from = validate_timestamp(opt, 'from', parse_from_str=True, optional=True)
+    dt_to = validate_timestamp(opt, 'to', parse_from_str=True, optional=True)
     dataset = validate_int(opt, 'dataset', min_val=0, parse_from_str=True, optional=True)
+    category = validate_int(opt, 'category', min_val=0, parse_from_str=True, optional=True)
 
     cond = Cond('TRUE')
-    if month is not None:
-        cond += Cond("strftime(%m, txn.timestamp) = ?", f'{month:02}')
-    if year is not None:
-        cond += Cond("strftime(%Y, txn.timestamp) = ?", f'{year:04}')
+    if dt_from is not None:
+        cond += Cond("txn.timestamp >= ?", dt_from)
+    if dt_to is not None:
+        cond += Cond("txn.timestamp <= ?", dt_to)
     if dataset is not None:
         cond += Cond("txn.dataset = ?", dataset)
+    if category is not None:
+        cond += Cond("txn_part.category = ?", category)
 
     return {
         "transactions": fetch_transactions(get_db().cursor(), cond),

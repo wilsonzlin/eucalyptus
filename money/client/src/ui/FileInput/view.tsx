@@ -27,7 +27,7 @@ export function FileInput<M extends boolean> ({
 }: CommonFileInputProps<M> & UnmanagedFormComponentProps<FileInputValue<M>>) {
   const $input = createRef<HTMLInputElement>();
 
-  const handleChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+  const changeHandler = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     let value: any = [...e.target.files!];
     if (!value.length) {
       value = undefined;
@@ -37,9 +37,7 @@ export function FileInput<M extends boolean> ({
     onChange(value);
   }, []);
 
-  const handleClick = useCallback(() => {
-    $input.current?.click();
-  }, []);
+  const clickHandler = useCallback(() => $input.current?.click(), []);
 
   return (
     <div>
@@ -48,10 +46,10 @@ export function FileInput<M extends boolean> ({
         hidden
         name={name}
         type="file"
-        onChange={handleChange}
+        onChange={changeHandler}
       />
       <SecondaryButton
-        onClick={handleClick}
+        onClick={clickHandler}
       >Select file{multiple ? 's' : ''}</SecondaryButton>
       <ul>
         {Array<File>().concat(value ?? []).map((f, i) => (

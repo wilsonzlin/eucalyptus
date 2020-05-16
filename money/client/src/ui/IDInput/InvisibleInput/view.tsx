@@ -2,7 +2,7 @@ import React, {ChangeEvent, createRef, forwardRef, useCallback, useState} from '
 import {assertInstanceOf} from '../../../util/Assert';
 import {measureText} from '../../../util/MeasureText';
 import {useServiceFetch} from '../../../util/ServiceFetch';
-import {Floating} from '../../Flyout/view';
+import {Floating} from '../../Floating/view';
 import {IDInputOption} from '../view';
 import styles from './style.css';
 

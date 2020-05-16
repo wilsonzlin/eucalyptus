@@ -20,13 +20,13 @@ export const TextInput = ({
   autoFocus = false,
   onChange,
 }: CommonTextInputProps & UnmanagedFormComponentProps<string>) => {
-  const handleChange = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const changeHandler = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
     let value = e.target.value;
     if (lines === 1) {
       value = value.replace(/[\r\n\t\v\f]+/, '');
     }
     onChange(value);
-  }, []);
+  }, [lines, onChange]);
 
   return (
     <textarea
@@ -34,7 +34,7 @@ export const TextInput = ({
       cols={columns}
       name={name}
       value={value}
-      onChange={handleChange}
+      onChange={changeHandler}
       placeholder={placeholder}
       autoFocus={autoFocus}
       rows={lines}

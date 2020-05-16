@@ -5,23 +5,34 @@ import styles from './style.css';
 type ButtonProps = {
   children: ReactChild | ReactChild[];
   submit?: boolean;
-  type: 'primary' | 'secondary' | 'cautious' | 'dangerous';
+  href?: string;
+  route?: string;
+  style: 'primary' | 'secondary' | 'cautious' | 'dangerous';
+  size?: 'large' | 'medium' | 'small';
   onClick?: () => void;
 };
 
 const Button = ({
   children,
   submit = false,
-  type,
+  href,
+  route,
+  style,
+  size = 'medium',
   onClick,
-}: ButtonProps) => (
-  <button
-    type={submit ? 'submit' : 'button'}
-    className={cls(styles.button, styles[type])}
-    onClick={onClick}
-  >{children}</button>
-);
+}: ButtonProps) => {
+  const Element = href != undefined || route != undefined ? 'a' : 'button';
 
-export const PrimaryButton = (props: Omit<ButtonProps, 'type'>) => Button({...props, type: 'primary'});
+  return (
+    <Element
+      href={route ? `#${route}` : href}
+      type={submit ? 'submit' : 'button'}
+      className={cls(styles.button, styles[style], styles[size])}
+      onClick={onClick}
+    >{children}</Element>
+  );
+};
 
-export const SecondaryButton = (props: Omit<ButtonProps, 'type'>) => Button({...props, type: 'secondary'});
+export const PrimaryButton = (props: Omit<ButtonProps, 'style'>) => Button({...props, style: 'primary'});
+
+export const SecondaryButton = (props: Omit<ButtonProps, 'style'>) => Button({...props, style: 'secondary'});

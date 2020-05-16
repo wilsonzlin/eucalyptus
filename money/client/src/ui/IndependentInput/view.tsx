@@ -2,13 +2,13 @@ import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {LatestAsync} from '../../util/LatestAsync';
 import {MaybeErrorAlert} from '../Alert/view';
 
-export function IndependentInput<V, OnChange> ({
+export function IndependentInput<V> ({
   initialValue,
   onChange,
   Input,
 }: {
   initialValue: V;
-  onChange: (value: V) => Promise<OnChange>;
+  onChange: (value: V) => Promise<any>;
   Input: (props: { value: V, onChange: (value: V) => void }) => JSX.Element;
 }) {
   const [value, setValue] = useState<V>(initialValue);

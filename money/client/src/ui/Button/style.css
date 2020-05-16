@@ -1,8 +1,11 @@
 .button {
-  border: 0.125rem solid transparent;
-  border-radius: 0.25rem;
+  border-style: solid;
+  border-color: transparent;
   cursor: pointer;
-  padding: 0.325rem 0.75rem;
+
+  /* Might be a link. */
+  display: block;
+  text-decoration: none;
 }
 
 .primary {
@@ -14,4 +17,17 @@
 .secondary {
   border-color: #e2e2e2;
   background: #fdfdfd;
+}
+
+.medium {
+  border-width: 0.125rem;
+  border-radius: 0.25rem;
+  padding: 0.325rem 0.75rem;
+  font-size: 1rem;
+}
+
+.small {
+  border-width: 1px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
 }

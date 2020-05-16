@@ -266,20 +266,22 @@ class Service {
   }
 
   async getTransactions ({
-    year,
-    month,
+    from,
+    to,
     dataset,
+    category,
   }: {
-    year?: number;
-    month?: number;
+    from?: Moment;
+    to?: Moment;
     dataset?: number;
+    category?: number;
   }): Promise<{
     transactions: MTransaction[];
   }> {
     return await this.makeRequest<any>({
       method: 'GET',
       path: `/transactions`,
-      query: {year, month, dataset},
+      query: {from, to, dataset, category},
     });
   }
 
