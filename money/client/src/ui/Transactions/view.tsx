@@ -124,7 +124,7 @@ const TransactionDetails = ({
             ],
           }))}
         />
-        <PrimaryButton onClick={() => service.createTransactionPart({
+        <PrimaryButton size="small" onClick={() => service.createTransactionPart({
           transaction: id,
           comment: 'New transaction part',
           amount: 0,

@@ -9,7 +9,7 @@ export function ModifiableDisplayValue<V> ({
 }: {
   value: V;
   onChange: (value: V) => void;
-  Input: (props: { value: V, onChange: (value: V) => void }) => JSX.Element;
+  Input: (props: { value: V, onChange: (value: V) => void, autoFocus: boolean }) => JSX.Element;
   children: ReactNode;
 }) {
   const [editing, setEditing] = useState<boolean>(false);
@@ -35,7 +35,7 @@ export function ModifiableDisplayValue<V> ({
       {ref => (
         <div ref={ref}>
           {editing ? (
-            <Input value={value} onChange={onChange}/>
+            <Input value={value} onChange={onChange} autoFocus={true}/>
           ) : (
             <div onClick={clickHandler}>{children}</div>
           )}

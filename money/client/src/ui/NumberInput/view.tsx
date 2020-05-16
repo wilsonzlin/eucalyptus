@@ -7,6 +7,7 @@ type CommonNumberInputProps = {
   min?: number;
   max?: number;
   step?: number;
+  autoFocus?: boolean;
 }
 
 export const NumberInput = ({
@@ -15,6 +16,7 @@ export const NumberInput = ({
   min,
   max,
   step,
+  autoFocus,
   onChange,
 }: CommonNumberInputProps & UnmanagedFormComponentProps<number>) => {
   const [uiValue, setUiValue] = useState<string>(value.toString());
@@ -40,6 +42,7 @@ export const NumberInput = ({
       min={min}
       max={max}
       step={step}
+      autoFocus={autoFocus}
       onBlur={blurHandler}
       onChange={changeHandler}
     />
