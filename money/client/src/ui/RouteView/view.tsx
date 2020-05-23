@@ -1,21 +1,25 @@
+import moment from 'moment';
 import {useCallback, useEffect, useMemo, useState} from 'react';
-import {UnreachableError} from '../../util/Assert';
+import {assertExists, UnreachableError} from '../../util/Assert';
 
 type RouteComponent = {
   name: string;
-  parameter?: 'string' | 'integer' | 'number';
+  parameter?: 'datetime' | 'string' | 'integer' | 'number';
+  isArray: boolean;
 };
 
 const parseRouteComponent = (raw: string): RouteComponent => {
-  const [name, type = ''] = raw.split(':');
+  const [_, name, type, arraySuffix] = assertExists(/^([a-zA-Z0-9_]+):?([a-z]?)((?:\[])?)$/.exec(raw));
   return {
     name,
     parameter: {
       '': undefined,
+      'd': 'datetime',
       'i': 'integer',
       'n': 'number',
       's': 'string',
     }[type],
+    isArray: !!arraySuffix,
   };
 };
 
@@ -29,14 +33,27 @@ const parseRoute = (routeRaw: string): Route => {
 
   return {
     path: path.split('/').filter(p => p).map(parseRouteComponent),
-    query: Object.fromEntries(query.split('&').filter(p => p).map(c => c.split('=')).map(([name, v]) => [name, parseRouteComponent(v)])),
+    query: Object.fromEntries(
+      query
+        .split('&')
+        .filter(p => p)
+        .map(c => c.split('='))
+        .map(([name, v]) => [name, parseRouteComponent(v)]),
+    ),
   };
 };
 
-type RouteArguments = { [name: string]: string | number };
+type RouteArguments = { [name: string]: any };
 
 const parsePathComponent = (valueRaw: string, type: RouteComponent['parameter']) => {
   switch (type) {
+  case 'datetime':
+    const asMoment = moment.unix(Number.parseInt(valueRaw, 10));
+    if (!asMoment.isValid()) {
+      return undefined;
+    }
+    return asMoment;
+
   case 'string':
     return valueRaw;
 
@@ -62,12 +79,12 @@ const parsePathComponent = (valueRaw: string, type: RouteComponent['parameter'])
 const matchRoute = (urlRaw: string, route: Route): RouteArguments | undefined => {
   const pathParameters: RouteArguments = {};
   const [pathRaw, queryRaw = ''] = urlRaw.split('?');
-  const query = new Map<string, string>(queryRaw
+  // Don't use map as there could be duplicate parameter names for a list.
+  const query = queryRaw
     .split('&')
     .filter(p => p)
     .map(p => p.split('='))
-    .map(([name, value = '']) => [decodeURIComponent(name), decodeURIComponent(value)]),
-  );
+    .map(([name, value = '']) => [decodeURIComponent(name), decodeURIComponent(value)]);
   const pathComponents = pathRaw.split('/').filter(p => p).map(p => decodeURIComponent(p));
   if (pathComponents.length !== route.path.length) {
     return undefined;
@@ -97,7 +114,14 @@ const matchRoute = (urlRaw: string, route: Route): RouteArguments | undefined =>
     if (value == undefined) {
       continue;
     }
-    pathParameters[param.name] = value;
+    if (param.isArray) {
+      if (!pathParameters[param.name]) {
+        pathParameters[param.name] = [];
+      }
+      pathParameters[param.name].push(value);
+    } else {
+      pathParameters[param.name] = value;
+    }
   }
 
   return pathParameters;

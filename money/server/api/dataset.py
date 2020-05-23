@@ -8,19 +8,19 @@ from flask import request, Blueprint
 from server.api._common import get_db
 from server.model import fetch_datasets
 from server.sql import Cond
-from server.validation import validate_int, validate_str, parse_money_amount
+from server.validation import parse_money_amount, intv, v_dict_entry, strv
 
 dataset_api = Blueprint('dataset_api', __name__)
 
 
 @dataset_api.route("/dataset_source/<source>/datasets", methods=['POST'])
 def create_dataset(**args):
-    source = validate_int(args, 'source', min_val=0, parse_from_str=True)
+    source = v_dict_entry(args, 'source', vv=intv(min_val=0, parse_from_str=True))
     opt = request.args
-    timestamp_column = validate_int(opt, 'timestamp_column', parse_from_str=True)
-    timestamp_format = validate_str(opt, 'timestamp_format')
-    description_column = validate_int(opt, 'description_column', parse_from_str=True)
-    amount_column = validate_int(opt, 'amount_column', parse_from_str=True)
+    timestamp_column = v_dict_entry(opt, 'timestamp_column', vv=intv(parse_from_str=True))
+    timestamp_format = v_dict_entry(opt, 'timestamp_format', vv=strv())
+    description_column = v_dict_entry(opt, 'description_column', vv=intv(parse_from_str=True))
+    amount_column = v_dict_entry(opt, 'amount_column', vv=intv(parse_from_str=True))
 
     c = get_db().cursor()
     # TODO Handle errors
@@ -75,7 +75,7 @@ def get_datasets():
 
 @dataset_api.route("/dataset/<dataset>", methods=['GET'])
 def get_dataset(**opt):
-    dataset = validate_int(opt, 'dataset', min_val=0, parse_from_str=True)
+    dataset = v_dict_entry(opt, 'dataset', vv=intv(min_val=0, parse_from_str=True))
     return {
         "datasets": fetch_datasets(get_db().cursor(), Cond('dataset.id = ?', dataset))
     }

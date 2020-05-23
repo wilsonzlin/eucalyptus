@@ -1,6 +1,6 @@
 from enum import Enum
 from sqlite3 import Cursor
-from typing import Optional, List, Tuple, Any, Iterable
+from typing import Optional, List, Tuple, Any, Iterable, Sequence
 
 from werkzeug.exceptions import NotFound
 
@@ -63,7 +63,7 @@ def fetch_all_as_dict(
         *,
         c: Cursor,
         tables: Tuple[Table, ...],
-        cols: Tuple[Column, ...],
+        cols: Sequence[Column],
         joins: Tuple[Join, ...] = (),
         where: Cond,
         group_by: Optional[str] = None,

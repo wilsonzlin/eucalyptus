@@ -19,13 +19,13 @@ import styles from './style.css';
 export const Datasets = ({}: {}) => {
   const {data: datasets, refresh: refreshDatasets} = useServiceFetch<MDataset[]>({
     fetcher: () => service.getDatasets().then(({datasets}) => datasets),
-    initial: [],
+    defaultValue: [],
     dependencies: [],
   });
 
   const {data: datasetSources, refresh: refreshDatasetSources} = useServiceFetch<MDatasetSource[]>({
     fetcher: () => service.getDatasetSources().then(({sources}) => sources),
-    initial: [],
+    defaultValue: [],
     dependencies: [],
   });
 

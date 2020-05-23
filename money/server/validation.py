@@ -1,6 +1,6 @@
 import re
 from datetime import datetime, timezone
-from typing import Optional, Dict, Union, TypeVar, Type, Callable
+from typing import Optional, Dict, Union, TypeVar, Callable, List
 
 from flask import request
 from werkzeug import Response
@@ -13,42 +13,12 @@ class MalformedInputException(BadRequest):
         self.response = Response(description, status=400)
 
 
-T = TypeVar('T')
-
-
 class Null:
     def __eq__(self, other):
         return isinstance(other, Null)
 
 
 NULL = Null()
-
-
-def _get_or_default(
-        *,
-        body: Dict,
-        prop: str,
-        parse_from_str: Optional[Callable[[str], T]],
-        typ: Type,
-        nullable: bool,
-        optional: Union[bool, T],
-) -> Optional[T]:
-    if prop not in body:
-        if optional == False:
-            raise MalformedInputException(f"The {prop} is missing.")
-        return None if optional == True else optional
-    else:
-        val = body[prop]
-        if val is None and nullable:
-            return NULL
-        if type(val) != typ:
-            if type(val) == str and parse_from_str:
-                try:
-                    return parse_from_str(val)
-                except ValueError:
-                    pass
-            raise MalformedInputException(f"The {prop} is missing or incorrect.")
-        return val
 
 
 def require_json_object_body():
@@ -77,105 +47,127 @@ def parse_money_amount(raw: str):
         raise ValueError("Invalid money amount string.")
 
 
-def validate_str(
+R = TypeVar('R')
+
+
+def v_dict_entry(
         body: Dict,
         prop: str,
+        *,
+        vv: Callable,
+        nullable: bool = False,
+        optional: Union[bool, R] = False,
+) -> Optional[R]:
+    if prop not in body:
+        if optional == False:
+            raise MalformedInputException(f"The {prop} is missing.")
+        return None if optional == True else optional
+    else:
+        val = body[prop]
+        if val is None and nullable:
+            return NULL
+        try:
+            val = vv(val)
+        except ValueError as e:
+            raise MalformedInputException(f"The {prop} {e}.")
+        return val
+
+
+def v_list(
+        seq: List,
+        name: str,
+        *,
+        vv: Callable,
+) -> List[R]:
+    validated = []
+    for i, val in enumerate(seq):
+        try:
+            val = vv(val)
+        except ValueError as e:
+            raise MalformedInputException(f"Value number {i} of {name} {e}.")
+        validated.append(val)
+    return validated
+
+
+def strv(
         *,
         min_len: Optional[int] = None,
         max_len: Optional[int] = None,
-        nullable: bool = False,
-        optional: Union[bool, str] = False,
-) -> Optional[str]:
-    val = _get_or_default(
-        body=body,
-        prop=prop,
-        parse_from_str=None,
-        typ=str,
-        nullable=nullable,
-        optional=optional,
-    )
-    if val is None or val is NULL:
+):
+    def validator(val):
+        if not isinstance(val, str):
+            raise ValueError("is not a string")
+        if min_len is not None and len(val) < min_len:
+            raise ValueError(f"is too short")
+        if max_len is not None and len(val) > max_len:
+            raise ValueError(f"is too long")
         return val
 
-    if min_len is not None and len(val) < min_len:
-        raise MalformedInputException(f"The {prop} is too short.")
-
-    if max_len is not None and len(val) > max_len:
-        raise MalformedInputException(f"The {prop} is too long.")
-
-    return val
+    return validator
 
 
-def validate_int(
-        body: Dict,
-        prop: str,
+def intv(
         *,
-        parse_from_str: bool = False,
         min_val: Optional[int] = None,
         max_val: Optional[int] = None,
-        nullable: bool = False,
-        optional: Union[bool, int] = False,
-) -> Optional[int]:
-    val = _get_or_default(
-        body=body,
-        prop=prop,
-        parse_from_str=None if not parse_from_str else int,
-        typ=int,
-        nullable=nullable,
-        optional=optional,
-    )
-    if val is None or val is NULL:
+        parse_from_str: bool = False,
+):
+    def validator(val):
+        if parse_from_str:
+            val = int(val)
+        if not isinstance(val, int):
+            raise ValueError("is not an integer")
+        if min_val is not None and val < min_val:
+            raise ValueError(f"is too small.")
+        if max_val is not None and val > max_val:
+            raise ValueError(f"is too large.")
         return val
 
-    if min_val is not None and val < min_val:
-        raise MalformedInputException(f"The {prop} is too small.")
-
-    if max_val is not None and val > max_val:
-        raise MalformedInputException(f"The {prop} is too large.")
-
-    return val
+    return validator
 
 
-def validate_bool(
-        body: Dict,
-        prop: str,
+def boolv(
         *,
         parse_from_str: bool = False,
-        nullable: bool = False,
-        optional: Union[bool, bool] = False,
-) -> Optional[int]:
-    val = _get_or_default(
-        body=body,
-        prop=prop,
-        parse_from_str=None if not parse_from_str else parse_bool,
-        typ=bool,
-        nullable=nullable,
-        optional=optional,
-    )
-    if val is None or val is NULL:
+):
+    def validator(val):
+        if parse_from_str:
+            if val == '0':
+                val = False
+            elif val == '1':
+                val = True
+            else:
+                raise ValueError("is not a boolean")
+        if not isinstance(val, bool):
+            raise ValueError("is not a boolean")
         return val
 
-    return val
+    return validator
 
 
-def validate_timestamp(
-        body: Dict,
-        prop: str,
+def timestampv(
         *,
         parse_from_str: bool = False,
-        nullable: bool = False,
-        optional: Union[bool, datetime] = False,
-) -> Optional[datetime]:
-    unix_ts = _get_or_default(
-        body=body,
-        prop=prop,
-        parse_from_str=int if parse_from_str else None,
-        typ=int,
-        nullable=nullable,
-        optional=optional,
-    )
-    if unix_ts is None or unix_ts is NULL:
-        return None
-    val = datetime.fromtimestamp(unix_ts, tz=timezone.utc)
+):
+    def validator(val):
+        if parse_from_str:
+            val = int(val)
+        if not isinstance(val, int):
+            raise ValueError("is not a timestamp")
+        try:
+            return datetime.fromtimestamp(val, tz=timezone.utc)
+        except (OverflowError, OSError):
+            raise ValueError("is not a valid time")
 
-    return val
+    return validator
+
+
+def enumv(
+        *,
+        options: List[str],
+):
+    def validator(val):
+        if not isinstance(val, str) or val not in options:
+            raise ValueError("is not a valid option")
+        return val
+    return validator

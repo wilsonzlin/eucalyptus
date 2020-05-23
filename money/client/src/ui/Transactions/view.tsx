@@ -1,7 +1,8 @@
 import {Moment} from 'moment';
 import React from 'react';
-import {categoryIDStore, MTransaction, MTransactionPart, service} from '../../service/Service';
+import {categoryIDStore, MTransaction, MTransactionPart, service, tagIDStore} from '../../service/Service';
 import {useServiceFetch} from '../../util/ServiceFetch';
+import {MaybeErrorAlert} from '../Alert/view';
 import {PrimaryButton} from '../Button/view';
 import {IDInput} from '../IDInput/view';
 import {IndependentInput} from '../IndependentInput/view';
@@ -57,9 +58,9 @@ const TransactionDetails = ({
 }: {
   transaction: MTransaction;
 }) => {
-  const {data: parts, refresh: refreshParts} = useServiceFetch<MTransactionPart[]>({
+  const {data: parts, refresh: refreshParts, error: partsError} = useServiceFetch<MTransactionPart[]>({
     fetcher: () => service.getTransactionParts({transaction: id}).then(({parts}) => parts),
-    initial: [],
+    defaultValue: [],
     dependencies: [id],
   });
 
@@ -81,11 +82,13 @@ const TransactionDetails = ({
       <Margin height={1}/>
 
       <Labelled label="Parts">
+        <MaybeErrorAlert>{partsError}</MaybeErrorAlert>
         <Table
           spacing="dense"
           columns={[
             {width: 0.5, label: 'Comment'},
-            {width: 0.25, label: 'Category'},
+            {width: 0.1, label: 'Category'},
+            {width: 0.15, label: 'Tags'},
             {width: 0.25, label: 'Amount'},
           ]}
           rows={parts.map(p => ({
@@ -97,12 +100,24 @@ const TransactionDetails = ({
                 onChange={comment => service.updateTransactionPart({transactionPart: p.id, comment})}
               />,
               <IndependentInput<number | undefined>
-                initialValue={p.category_id ?? undefined}
+                initialValue={p.category?.id}
                 onChange={val => service.updateTransactionPart({transactionPart: p.id, category: val ?? null})}
                 Input={({value, onChange}) => (
                   <IDInput
                     idStore={categoryIDStore}
                     multiple={false}
+                    value={value}
+                    onChange={onChange}
+                  />
+                )}
+              />,
+              <IndependentInput<number[]>
+                initialValue={p.tags.map(t => t.id)}
+                onChange={tags => service.updateTransactionPart({transactionPart: p.id, tags})}
+                Input={({value, onChange}) => (
+                  <IDInput
+                    idStore={tagIDStore}
+                    multiple={true}
                     value={value}
                     onChange={onChange}
                   />
@@ -138,17 +153,17 @@ export const Transactions = ({
   from,
   to,
   dataset,
-  category,
+  categories,
 }: {
   from?: Moment;
   to?: Moment;
   dataset?: number;
-  category?: number;
+  categories?: number[];
 }) => {
   const {data: transactions} = useServiceFetch<MTransaction[]>({
-    fetcher: () => service.getTransactions({from, to, dataset, category}).then(({transactions}) => transactions),
-    initial: [],
-    dependencies: [from, to, dataset, category],
+    fetcher: () => service.getTransactions({from, to, dataset, categories}).then(({transactions}) => transactions),
+    defaultValue: [],
+    dependencies: [from, to, dataset, categories],
   });
 
   return (

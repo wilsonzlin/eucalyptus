@@ -1,20 +1,34 @@
 import moment, {isMoment, Moment} from 'moment';
 import {IDStore} from '../ui/IDInput/view';
+import {exists} from '../util/Optional';
+import {encodeQuery, QueryParams} from '../util/QueryString';
+
+export type MTransactionsAnalysisPoint = {
+  category_name?: string | null;
+  combined_amount: number;
+  time_unit?: string;
+};
+
+export type MTag = {
+  id: number;
+  name: string;
+  comment: string;
+};
 
 export type MCategory = {
   id: number;
   name: string;
   comment: string;
   depth: number;
-}
+};
 
 export type MTransactionPart = {
   id: number;
   comment: string;
   amount: number;
-  category_id: number | null;
-  category_name: number | null;
-}
+  category: { id: number; name: string; } | null;
+  tags: { id: number; name: string }[];
+};
 
 export type MTransaction = {
   id: number;
@@ -40,9 +54,6 @@ export type MDatasetSource = {
   name: string;
 };
 
-// Query parameters and JSON object body properties might have Moment values, so serialise them to UNIX timestamps as accepted by server.
-const serialiseDateTime = (val: Moment) => val.unix();
-
 // Server JSON object response bodies might have DateTime values, so deserialise them to Moment instances.
 function maybeDeserialiseDateTime (this: any, key: string, val: any) {
   if (key.startsWith('_ts:')) {
@@ -51,37 +62,6 @@ function maybeDeserialiseDateTime (this: any, key: string, val: any) {
     return val;
   }
 }
-
-type QueryParamValue = string | boolean | number | Moment | undefined;
-
-const encodeQueryParamValue = (value: QueryParamValue): string => {
-  switch (typeof value) {
-  case 'string':
-    return encodeURIComponent(value);
-  case 'number':
-    return value.toString();
-  case 'boolean':
-    return value ? '1' : '0';
-  case 'object':
-    if (isMoment(value)) {
-      return serialiseDateTime(value).toString();
-    }
-    // Fall through.
-  default:
-    throw new TypeError(`Cannot encode ${value} as query parameter value`);
-  }
-};
-
-const encodeQueryParamPair = ([name, value]: [string, QueryParamValue]) => value == undefined
-  ? ''
-  : `${encodeURIComponent(name)}=${encodeQueryParamValue(value)}`;
-
-const encodeQueryParamPairs = (pairs: [string, QueryParamValue][]) => {
-  pairs = pairs.filter(([_, value]) => value != undefined);
-  return !pairs.length
-    ? ''
-    : `?${pairs.map(encodeQueryParamPair).join('&')}`;
-};
 
 export class ServiceError extends Error {
   private readonly status: number;
@@ -110,20 +90,12 @@ class Service {
   }: {
     method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
     path: string;
-    query?: { [name: string]: QueryParamValue } | Map<string, QueryParamValue> | [string, QueryParamValue][];
+    query?: QueryParams;
     body?: object | File;
   }): Promise<T> {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
-      const qs = encodeQueryParamPairs(
-        !query
-          ? []
-          : Array.isArray(query)
-          ? query
-          : query instanceof Map
-            ? [...query.entries()]
-            : Object.entries(query),
-      );
+      const qs = encodeQuery(query);
       xhr.open(method, `${this.prefix}${path}${qs}`, true);
       xhr.onreadystatechange = () => {
         if (xhr.readyState === XMLHttpRequest.DONE) {
@@ -142,7 +114,7 @@ class Service {
         xhr.send(null);
       } else {
         xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.send(JSON.stringify(body, (_, value) => isMoment(value) ? serialiseDateTime(value) : value));
+        xhr.send(JSON.stringify(body, (_, value) => isMoment(value) ? value.unix() : value));
       }
     });
   }
@@ -250,9 +222,7 @@ class Service {
     return this.makeRequest({
       method: 'GET',
       path: '/categories',
-      query: {
-        suggestions_query: query,
-      },
+      query: {query},
     });
   }
 
@@ -265,23 +235,58 @@ class Service {
     });
   }
 
+  async getCategoryName ({
+    id,
+  }: {
+    id: number;
+  }): Promise<{
+    name: string;
+  }> {
+    return this.makeRequest({
+      method: 'GET',
+      path: `/category/${id}/name`,
+    });
+  }
+
   async getTransactions ({
     from,
     to,
     dataset,
-    category,
+    categories,
+    tags,
   }: {
     from?: Moment;
     to?: Moment;
     dataset?: number;
-    category?: number;
+    categories?: number[];
+    tags?: number[];
   }): Promise<{
     transactions: MTransaction[];
   }> {
     return await this.makeRequest<any>({
       method: 'GET',
       path: `/transactions`,
-      query: {from, to, dataset, category},
+      query: {from, to, dataset, category: categories, tags},
+    });
+  }
+
+  async getTransactionsAnalysis ({
+    from,
+    to,
+    splitBy,
+    timeUnit,
+  }: {
+    from?: Moment;
+    to?: Moment;
+    splitBy: 'category' | 'none',
+    timeUnit: 'year' | 'month' | 'day' | 'none';
+  }): Promise<{
+    analysis: MTransactionsAnalysisPoint[];
+  }> {
+    return this.makeRequest({
+      method: 'GET',
+      path: '/transactions/analysis',
+      query: {from, to, split_by: splitBy, time_unit: timeUnit},
     });
   }
 
@@ -340,17 +345,22 @@ class Service {
     transaction,
   }: {
     transaction: number;
-  }): Promise<{
-    parts: MTransactionPart[];
-  }> {
-    const res = await this.makeRequest<any>({
+  }) {
+    const res = await this.makeRequest<{
+      parts: MTransactionPart[];
+    }>({
       method: 'GET',
       path: `/transaction/${transaction}/parts`,
     });
     categoryIDStore.addLabels(
       res.parts
-        .map((p: any) => ({id: p.category_id, label: p.category_name}))
-        .filter(({id}: any) => id != null),
+        .map(({category}) => category && ({id: category.id, label: category.name}))
+        .filter(exists),
+    );
+    tagIDStore.addLabels(
+      res.parts
+        .flatMap(({tags}) => tags)
+        .map(tag => ({id: tag.id, label: tag.name})),
     );
     return res;
   }
@@ -360,20 +370,82 @@ class Service {
     comment,
     amount,
     category,
+    tags,
   }: {
     transactionPart: number;
     comment?: string;
     amount?: number;
     category?: number | null;
+    tags?: number[];
   }): Promise<{}> {
     return this.makeRequest({
       method: 'PATCH',
       path: `/transaction_part/${transactionPart}`,
-      body: {comment, amount, category},
+      body: {comment, amount, category, tags},
+    });
+  }
+
+  async createTag ({
+    name,
+    comment,
+  }: {
+    name: string;
+    comment: string;
+  }): Promise<{
+    id: number;
+  }> {
+    return this.makeRequest({
+      method: 'POST',
+      path: '/tags',
+      body: {name, comment},
+    });
+  }
+
+  async getTags (): Promise<{
+    tags: MTag[];
+  }> {
+    return this.makeRequest({
+      method: 'GET',
+      path: '/tags',
+    });
+  }
+
+  async getTagName ({
+    id,
+  }: {
+    id: number;
+  }): Promise<{
+    name: string;
+  }> {
+    return this.makeRequest({
+      method: 'GET',
+      path: `/tag/${id}/name`,
+    });
+  }
+
+  async suggestTags ({
+    query,
+  }: {
+    query: string;
+  }): Promise<{
+    suggestions: { id: number; label: string; }[];
+  }> {
+    return this.makeRequest({
+      method: 'GET',
+      path: '/tags',
+      query: {query},
     });
   }
 }
 
 export const service = new Service('');
 
-export const categoryIDStore = new IDStore(query => service.suggestCategories({query}).then(({suggestions}) => suggestions));
+export const categoryIDStore = new IDStore(
+  query => service.suggestCategories({query}).then(({suggestions}) => suggestions),
+  id => service.getCategoryName({id}).then(({name}) => name),
+);
+
+export const tagIDStore = new IDStore(
+  query => service.suggestTags({query}).then(({suggestions}) => suggestions),
+  id => service.getTagName({id}).then(({name}) => name),
+);

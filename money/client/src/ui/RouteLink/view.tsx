@@ -1,5 +1,9 @@
 import React from 'react';
 
+export const goToRoute = (path: string) => {
+  location.hash = `#${path}`;
+};
+
 export const RouteLink = ({
   title,
   path,

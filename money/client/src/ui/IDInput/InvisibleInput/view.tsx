@@ -69,7 +69,7 @@ export const InvisibleInput = forwardRef<HTMLInputElement, InvisibleInputProps>(
 
   const {data: suggestions} = useServiceFetch<IDInputOption[]>({
     fetcher: async () => !value ? [] : suggester(value),
-    initial: [],
+    defaultValue: [],
     dependencies: [value],
   });
 

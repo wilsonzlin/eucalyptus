@@ -13,7 +13,7 @@ export const Dataset = ({}: {}) => {
 
   const {data: dataset, loading, error} = useServiceFetch<MDataset | undefined>({
     fetcher: async () => mapDefined(pathParameters?.id, dataset => service.getDataset({dataset})),
-    initial: undefined,
+    defaultValue: undefined,
     dependencies: [pathParameters?.id],
   });
 

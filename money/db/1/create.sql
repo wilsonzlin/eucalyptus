@@ -29,24 +29,12 @@ CREATE TABLE dataset (
     FOREIGN KEY (source) REFERENCES dataset_source (id)
 );
 
-CREATE TABLE project (
-    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
-    comment TEXT NOT NULL
-);
-
 CREATE TABLE category (
     id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
     comment TEXT NOT NULL,
     set_start INTEGER NOT NULL,
     set_end INTEGER NOT NULL
-);
-
-CREATE TABLE entity (
-    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
-    comment TEXT NOT NULL
 );
 
 CREATE TABLE tag (
@@ -81,26 +69,10 @@ CREATE TABLE txn_part (
     FOREIGN KEY (category) REFERENCES category (id) ON DELETE SET NULL
 );
 
-CREATE TABLE txn_part_project (
-    txn_part INTEGER NOT NULL,
-    project INTEGER NOT NULL,
-    comment TEXT NOT NULL,
-    PRIMARY KEY (txn_part, project),
-    FOREIGN KEY (txn_part) REFERENCES txn_part (id),
-    FOREIGN KEY (project) REFERENCES project (id)
-);
-
-CREATE TABLE txn_part_entity (
-    txn_part INTEGER NOT NULL,
-    entity INTEGER NOT NULL,
-    PRIMARY KEY (txn_part, entity),
-    FOREIGN KEY (txn_part) REFERENCES txn_part (id),
-    FOREIGN KEY (entity) REFERENCES entity (id)
-);
-
 CREATE TABLE txn_part_tag (
     txn_part INTEGER NOT NULL,
     tag INTEGER NOT NULL,
+    comment TEXT NOT NULL,
     PRIMARY KEY (txn_part, tag),
     FOREIGN KEY (txn_part) REFERENCES txn_part (id),
     FOREIGN KEY (tag) REFERENCES tag (id)

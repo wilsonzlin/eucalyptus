@@ -45,7 +45,7 @@ const Category = ({
 export const Categories = ({}: {}) => {
   const {data: categories} = useServiceFetch<MCategory[]>({
     fetcher: () => service.getCategories().then(({categories}) => categories),
-    initial: [],
+    defaultValue: [],
     dependencies: [],
   });
 

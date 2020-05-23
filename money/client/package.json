@@ -4,12 +4,15 @@
   "private": true,
   "dependencies": {
     "moment": "^2.25.3",
+    "plotly.js": "^1.54.1",
     "react": "^16.13.1",
-    "react-dom": "^16.13.1"
+    "react-dom": "^16.13.1",
+    "react-plotly.js": "^2.4.0"
   },
   "devDependencies": {
     "@types/react": "^16.9.0",
     "@types/react-dom": "^16.9.0",
+    "@types/react-plotly.js": "^2.2.4",
     "css-loader": "3.4.2",
     "html-webpack-plugin": "4.0.0-beta.11",
     "mini-css-extract-plugin": "^0.9.0",

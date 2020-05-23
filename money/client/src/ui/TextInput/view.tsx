@@ -17,7 +17,7 @@ export const TextInput = ({
   name,
   value,
   placeholder,
-  autoFocus = false,
+  autoFocus,
   onChange,
 }: CommonTextInputProps & UnmanagedFormComponentProps<string>) => {
   const changeHandler = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {

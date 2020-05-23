@@ -3,7 +3,7 @@ from werkzeug.exceptions import BadRequest
 
 from server.api._common import get_db
 from server.sql import require_one, fetch_all_as_dict, Column, Cond, Table
-from server.validation import require_json_object_body, validate_str, validate_int
+from server.validation import require_json_object_body, v_dict_entry, strv, intv
 
 category_api = Blueprint('category_api', __name__)
 
@@ -11,9 +11,9 @@ category_api = Blueprint('category_api', __name__)
 @category_api.route("/categories", methods=['POST'])
 def create_category():
     opt = require_json_object_body()
-    name = validate_str(opt, 'name')
-    target = validate_int(opt, 'target', min_val=0, optional=True)
-    mode = validate_str(opt, 'mode')
+    name = v_dict_entry(opt, 'name', vv=strv())
+    target = v_dict_entry(opt, 'target', vv=intv(min_val=0), optional=True)
+    mode = v_dict_entry(opt, 'mode', vv=strv())
 
     # TODO Lock table
     c = get_db().cursor()
@@ -56,9 +56,9 @@ def create_category():
 @category_api.route("/categories", methods=['GET'])
 def get_or_suggest_categories():
     opt = request.args
-    suggestions_query = validate_str(opt, 'suggestions_query', min_len=1, optional=True)
+    query = v_dict_entry(opt, 'query', vv=strv(min_len=1), optional=True)
 
-    if suggestions_query is not None:
+    if query is not None:
         return {
             "suggestions": fetch_all_as_dict(
                 c=get_db().cursor(),
@@ -69,7 +69,7 @@ def get_or_suggest_categories():
                     Column('id'),
                     Column('name', 'label'),
                 ),
-                where=Cond('name LIKE ?', f'{suggestions_query}%'),
+                where=Cond('name LIKE ?', f'{query}%'),
             ),
         }
 
@@ -90,4 +90,12 @@ def get_or_suggest_categories():
             group_by='node.id',
             order_by='node.set_start',
         )
+    }
+
+
+@category_api.route("/category/<category>/name", methods=['GET'])
+def get_category_name(**args):
+    category = v_dict_entry(args, 'category', vv=intv(min_val=0, parse_from_str=True))
+    return {
+        "name": require_one(get_db().cursor().execute("SELECT name FROM category WHERE id = ?", (category,)).fetchall())[0],
     }

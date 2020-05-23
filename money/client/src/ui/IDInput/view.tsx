@@ -10,11 +10,24 @@ type IDInputValue<M extends boolean> = M extends true ? number[] : (number | und
 export type IDInputOption = { id: number; label: string; };
 
 export class IDStore {
-  private readonly labels: { [id: number]: string } = {};
+  private readonly labels = new Proxy<{ [id: number]: string }>({}, {
+    get: (labels, id: number) => {
+      if (labels[id] == undefined) {
+        this.labelFetcher(id).then(label => this.addLabels([{id, label}]));
+        return '\u{2026}';
+      }
+      return labels[id];
+    },
+    set: (labels, id, value) => {
+      labels[id] = value;
+      return true;
+    },
+  });
   private readonly trackers = new Set<Dispatch<SetStateAction<number>>>();
 
   constructor (
     private readonly suggester: (query: string) => Promise<IDInputOption[]>,
+    private readonly labelFetcher: (id: number) => Promise<string>,
   ) {
   }
 
@@ -153,13 +166,13 @@ export function IDInput<M extends boolean> ({
   );
 }
 
-export function ManagedSelectionInput<M extends boolean> ({
+export function ManagedIDInput<M extends boolean> ({
   form,
   name,
   initialValue,
   ...inputProps
 }: CommonIDInputProps<M> & ManagedFormComponentProps<IDInputValue<M>>) {
-  const {value, onChange} = useManaged<IDInputValue<M>>({form, name, initialValue: (inputProps.multiple ? [] : undefined) as any});
+  const {value, onChange} = useManaged<IDInputValue<M>>({form, name, initialValue: initialValue ?? (inputProps.multiple ? [] : undefined) as any});
   return (
     <IDInput
       {...inputProps}
