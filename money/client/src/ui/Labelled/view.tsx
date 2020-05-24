@@ -1,4 +1,4 @@
-import React, {ReactChild} from 'react';
+import React, {ReactNode} from 'react';
 import {Label} from '../Text/view';
 import styles from './style.css';
 
@@ -7,7 +7,7 @@ export const Labelled = ({
   children,
 }: {
   label: string;
-  children: ReactChild | ReactChild[];
+  children: ReactNode;
 }) => (
   <div className={styles.label}>
     <Label>{label}</Label>

@@ -440,6 +440,27 @@ class Service {
       query: {query},
     });
   }
+
+  async getName (): Promise<{
+    name: string;
+  }> {
+    return this.makeRequest({
+      method: 'GET',
+      path: '/setting/name',
+    });
+  }
+
+  async setName ({
+    name,
+  }: {
+    name: string;
+  }): Promise<{}> {
+    return this.makeRequest({
+      method: 'PUT',
+      path: '/setting/name',
+      body: {name},
+    });
+  }
 }
 
 export const service = new Service('');

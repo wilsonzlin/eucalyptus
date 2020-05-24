@@ -1,5 +1,4 @@
 import {useEffect, useRef, useState} from 'react';
-import {ServiceError} from '../service/Service';
 import {LatestAsync} from './LatestAsync';
 
 export const useServiceFetch = <D> ({
@@ -21,26 +20,18 @@ export const useServiceFetch = <D> ({
 } => {
   const isInitial = useRef<boolean>(true);
   const [refreshed, setRefreshed] = useState<Date | undefined>(fetchInitially ? new Date() : undefined);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(fetchInitially);
   const [data, setData] = useState<D>(defaultValue);
   const [error, setError] = useState<string>('');
 
   const latest = useRef<LatestAsync>(new LatestAsync());
   useEffect(() => {
     if (!isInitial.current || fetchInitially) {
-      latest.current
-        .onlyLatest(fetcher())
-        .then(data => {
-          setData(data);
-          setError('');
-        }, error => {
-          if (error instanceof ServiceError) {
-            setError(error.message);
-          } else {
-            console.error(error);
-            setError(`Something went wrong.`);
-          }
-        })
+      setLoading(true);
+      setError('');
+      latest.current.onlyLatest(fetcher())
+        .then(data => setData(data))
+        .catch(error => setError(error.message))
         .then(() => setLoading(false));
     }
     isInitial.current = false;

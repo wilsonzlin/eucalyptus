@@ -1,19 +1,16 @@
-/*
- * - It's possible for multiple transactions to have the same source, timestamp, description, and amount.
- * - A transaction always refers to exactly one well-formed dataset row.
- * - A well-formed dataset row is linked to exactly zero or one transaction.
- * - A dataset row might not be matched with a transaction if a previously-associated transaction was deleted by user for reasons such as:
- *   - being a duplicate
- *   - is not relevant/wanted
- *   - having since reversed
- */
-
 CREATE TABLE eucalyptus (
     app TEXT NOT NULL PRIMARY KEY,
     version INTEGER NOT NULL
 );
 
 INSERT INTO eucalyptus (app, version) VALUES ('money', 1);
+
+CREATE TABLE setting (
+    name TEXT NOT NULL PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+INSERT INTO setting VALUES ('name', '');
 
 CREATE TABLE dataset_source (
     id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
