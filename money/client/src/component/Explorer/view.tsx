@@ -14,7 +14,7 @@ import {useRoute} from '../../ui/RouteView/view';
 import {Select} from '../../ui/Select/view';
 import {InlineExpense} from '../../ui/Text/view';
 import {Transactions} from '../../ui/Transactions/view';
-import {assertDefined, assertExists, assertState} from '../../util/Assert';
+import {assertDefined, assertExists, assertState, UnreachableError} from '../../util/Assert';
 import {JMap} from '../../util/JMap';
 import {encodeQuery} from '../../util/QueryString';
 import {useServiceFetch} from '../../util/ServiceFetch';
@@ -27,15 +27,34 @@ export type ExplorerParameters = {
 };
 
 const enum Chart {
-  PIE = 'pie',
-  LINE = 'scatter',
-  BAR = 'bar',
-  AREA = 'area',
+  PIE,
+  LINE,
+  HORIZONTAL_BAR,
+  VERTICAL_BAR,
+  AREA,
 }
+
+const plotlyChartType = (chart: Chart): 'pie' | 'scatter' | 'bar' | undefined => {
+  switch (chart) {
+  case Chart.PIE:
+    return 'pie';
+  case Chart.LINE:
+    return 'scatter';
+  case Chart.HORIZONTAL_BAR:
+  case Chart.VERTICAL_BAR:
+    return 'bar';
+  case Chart.AREA:
+    return undefined;
+  default:
+    throw new UnreachableError(chart);
+  }
+};
+
 
 const CHART_OPTIONS = [
   {value: Chart.AREA, label: 'Area'},
-  {value: Chart.BAR, label: 'Bar'},
+  {value: Chart.HORIZONTAL_BAR, label: 'Bar (horizontal)'},
+  {value: Chart.VERTICAL_BAR, label: 'Bar (vertical)'},
   {value: Chart.LINE, label: 'Line'},
   {value: Chart.PIE, label: 'Pie'},
 ];
@@ -99,19 +118,21 @@ const maybeRenderChart = (chart: Chart, analysis: MTransactionsAnalysisPoint[] |
     data.computeIfAbsent(pt.time_unit, () => new JMap()).put(pt.category_name, pt.combined_amount);
   }
 
-  const xProp = chart == Chart.PIE ? 'labels' : 'x';
-  const yProp = chart == Chart.PIE ? 'values' : 'y';
-  const type = chart == Chart.AREA ? undefined : chart;
+  const xProp = chart == Chart.PIE ? 'labels' : chart == Chart.HORIZONTAL_BAR ? 'y' : 'x';
+  const yProp = chart == Chart.PIE ? 'values' : chart == Chart.HORIZONTAL_BAR ? 'x' : 'y';
+  const type = plotlyChartType(chart);
   const traces = hasTimeUnit ? categories.map(c => ({
     [xProp]: timeUnits.map(assertExists),
     [yProp]: timeUnits.map(tu => data.getOrThrow(tu).getOrDefault(c, 0) / 100),
     stackgroup: 'amount',
+    orientation: chart == Chart.HORIZONTAL_BAR ? 'h' as const : undefined,
     name: hasCategory ? categoryChartName(assertDefined(c)) : undefined,
     type,
   })) : [{
     [xProp]: categories.map(c => categoryChartName(assertDefined(c))),
     [yProp]: categories.map(c => data.getOrThrow(undefined).getOrThrow(c) / 100),
     stackgroup: 'amount',
+    orientation: chart == Chart.HORIZONTAL_BAR ? 'h' as const : undefined,
     type,
   }];
 
@@ -120,10 +141,10 @@ const maybeRenderChart = (chart: Chart, analysis: MTransactionsAnalysisPoint[] |
       data={traces}
       layout={{
         width: Math.max(500, document.documentElement.clientWidth * 0.9),
-        xaxis: {
+        [`${xProp}axis`]: {
           type: 'category',
         },
-        yaxis: {
+        [`${yProp}axis`]: {
           tickformat: '$,.2f',
         },
         barmode: 'stack',
@@ -139,7 +160,7 @@ export const Explorer = ({}: {}) => {
     goToRoute(`/explorer${encodeQuery(params)}`);
   }, []);
 
-  const [chart, setChart] = useState<Chart>(Chart.BAR);
+  const [chart, setChart] = useState<Chart>(Chart.VERTICAL_BAR);
   const [group, setGroup] = useState<Group>(Group.MONTH);
   const [split, setSplit] = useState<Split>(Split.CATEGORY);
 
