@@ -41,6 +41,8 @@ def get_transactions_analysis():
     dt_to = v_dict_entry(opt, 'to', optional=True, vv=timestampv(parse_from_str=True))
     split_by = v_dict_entry(opt, 'split_by', vv=enumv(options=['category', 'none']))
     time_unit = v_dict_entry(opt, 'time_unit', vv=enumv(options=['year', 'month', 'day', 'none']))
+    categories = v_list(opt.getlist('category'), 'categories', vv=intv(min_val=0, parse_from_str=True))
+    tags = v_list(opt.getlist('tag'), 'tags', vv=intv(min_val=0, parse_from_str=True))
 
     columns = [
         Column('SUM(txn_part.amount)', 'combined_amount'),
@@ -68,6 +70,10 @@ def get_transactions_analysis():
         cond += Cond("txn.timestamp >= ?", dt_from)
     if dt_to is not None:
         cond += Cond("txn.timestamp <= ?", dt_to)
+    if categories:
+        cond += Cond(f"txn_part.category IN ({','.join(map(str, categories))})")
+    if tags:
+        cond += Cond(f"txn_part.id IN (SELECT txn_part FROM txn_part_tag WHERE tag IN ({','.join(map(str, tags))}))")
 
     return {
         "analysis": fetch_all_as_dict(

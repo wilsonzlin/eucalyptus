@@ -154,16 +154,18 @@ export const Transactions = ({
   to,
   dataset,
   categories,
+  tags,
 }: {
   from?: Moment;
   to?: Moment;
   dataset?: number;
   categories?: number[];
+  tags?: number[];
 }) => {
   const {data: transactions} = useServiceFetch<MTransaction[]>({
-    fetcher: () => service.getTransactions({from, to, dataset, categories}).then(({transactions}) => transactions),
+    fetcher: () => service.getTransactions({from, to, dataset, categories, tags}).then(({transactions}) => transactions),
     defaultValue: [],
-    dependencies: [from, to, dataset, categories],
+    dependencies: [from, to, dataset, categories, tags],
   });
 
   return (

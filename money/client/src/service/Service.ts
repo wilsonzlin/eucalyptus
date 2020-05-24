@@ -266,7 +266,7 @@ class Service {
     return await this.makeRequest<any>({
       method: 'GET',
       path: `/transactions`,
-      query: {from, to, dataset, category: categories, tags},
+      query: {from, to, dataset, category: categories, tag: tags},
     });
   }
 
@@ -275,18 +275,22 @@ class Service {
     to,
     splitBy,
     timeUnit,
+    categories,
+    tags,
   }: {
     from?: Moment;
     to?: Moment;
     splitBy: 'category' | 'none',
     timeUnit: 'year' | 'month' | 'day' | 'none';
+    categories?: number[];
+    tags?: number[];
   }): Promise<{
     analysis: MTransactionsAnalysisPoint[];
   }> {
     return this.makeRequest({
       method: 'GET',
       path: '/transactions/analysis',
-      query: {from, to, split_by: splitBy, time_unit: timeUnit},
+      query: {from, to, split_by: splitBy, time_unit: timeUnit, category: categories, tag: tags},
     });
   }
 

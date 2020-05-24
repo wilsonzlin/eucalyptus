@@ -1,7 +1,7 @@
 import {Moment} from 'moment';
 import React, {useCallback, useState} from 'react';
 import Plot from 'react-plotly.js';
-import {categoryIDStore, MTransactionsAnalysisPoint, service} from '../../service/Service';
+import {categoryIDStore, MTransactionsAnalysisPoint, service, tagIDStore} from '../../service/Service';
 import {PrimaryButton} from '../../ui/Button/view';
 import {ManagedDateTimeInput} from '../../ui/DateTimeInput/view';
 import {Form} from '../../ui/Form/view';
@@ -23,18 +23,21 @@ export type ExplorerParameters = {
   from?: Moment;
   to?: Moment;
   category?: number[];
+  tag?: number[];
 };
 
 const enum Chart {
   PIE = 'pie',
   LINE = 'scatter',
   BAR = 'bar',
+  AREA = 'area',
 }
 
 const CHART_OPTIONS = [
-  {value: Chart.PIE, label: 'Pie'},
-  {value: Chart.LINE, label: 'Line'},
+  {value: Chart.AREA, label: 'Area'},
   {value: Chart.BAR, label: 'Bar'},
+  {value: Chart.LINE, label: 'Line'},
+  {value: Chart.PIE, label: 'Pie'},
 ];
 
 const enum Group {
@@ -88,9 +91,8 @@ const maybeRenderChart = (chart: Chart, analysis: MTransactionsAnalysisPoint[] |
     return null;
   }
 
-  // We want consistent ordering of bars/points/slices on graph.
-  const timeUnits = [...new Set(analysis.map(pt => pt.time_unit))].sort();
-  const categories = [...new Set(analysis.map(pt => pt.category_name))].sort();
+  const timeUnits = [...new Set(analysis.map(pt => pt.time_unit))];
+  const categories = [...new Set(analysis.map(pt => pt.category_name))];
   // timeUnit => category => amount.
   const data = new JMap<string | undefined, JMap<string | null | undefined, number>>();
   for (const pt of analysis) {
@@ -99,29 +101,30 @@ const maybeRenderChart = (chart: Chart, analysis: MTransactionsAnalysisPoint[] |
 
   const xProp = chart == Chart.PIE ? 'labels' : 'x';
   const yProp = chart == Chart.PIE ? 'values' : 'y';
-  let traces;
-
-  if (hasTimeUnit) {
-    traces = categories.map(c => ({
-      [xProp]: timeUnits.map(assertExists),
-      [yProp]: timeUnits.map(tu => data.getOrThrow(tu).getOrDefault(c, 0) / 100),
-      name: hasCategory ? categoryChartName(assertDefined(c)) : undefined,
-      type: chart,
-    }));
-  } else {
-    traces = [{
-      [xProp]: categories.map(c => categoryChartName(assertDefined(c))),
-      [yProp]: categories.map(c => data.getOrThrow(undefined).getOrThrow(c) / 100),
-      type: chart,
-    }];
-  }
+  const type = chart == Chart.AREA ? undefined : chart;
+  const traces = hasTimeUnit ? categories.map(c => ({
+    [xProp]: timeUnits.map(assertExists),
+    [yProp]: timeUnits.map(tu => data.getOrThrow(tu).getOrDefault(c, 0) / 100),
+    stackgroup: 'amount',
+    name: hasCategory ? categoryChartName(assertDefined(c)) : undefined,
+    type,
+  })) : [{
+    [xProp]: categories.map(c => categoryChartName(assertDefined(c))),
+    [yProp]: categories.map(c => data.getOrThrow(undefined).getOrThrow(c) / 100),
+    stackgroup: 'amount',
+    type,
+  }];
 
   return (
     <Plot
       data={traces}
       layout={{
+        width: Math.max(500, document.documentElement.clientWidth * 0.9),
         xaxis: {
           type: 'category',
+        },
+        yaxis: {
+          tickformat: '$,.2f',
         },
         barmode: 'stack',
       }}
@@ -130,7 +133,7 @@ const maybeRenderChart = (chart: Chart, analysis: MTransactionsAnalysisPoint[] |
 };
 
 export const Explorer = ({}: {}) => {
-  const params: ExplorerParameters | undefined = useRoute('/explorer?from=from:d&to=to:d&category=category:i[]');
+  const params: ExplorerParameters | undefined = useRoute('/explorer?from=from:d&to=to:d&category=category:i[]&tag=tag:i[]');
 
   const submitHandler = useCallback((params: ExplorerParameters) => {
     goToRoute(`/explorer${encodeQuery(params)}`);
@@ -146,6 +149,8 @@ export const Explorer = ({}: {}) => {
       to: params.to,
       splitBy: chart == Chart.PIE ? Split.CATEGORY : split,
       timeUnit: chart == Chart.PIE ? Group.NONE : group,
+      categories: params.category,
+      tags: params.tag,
     })).analysis,
     defaultValue: undefined,
     dependencies: [params, chart, group, split],
@@ -167,6 +172,9 @@ export const Explorer = ({}: {}) => {
                 <Labelled label="Categories">
                   <ManagedIDInput name="category" form={form} idStore={categoryIDStore} multiple={true} initialValue={params.category ?? []}/>
                 </Labelled>
+                <Labelled label="Tags">
+                  <ManagedIDInput name="tag" form={form} idStore={tagIDStore} multiple={true} initialValue={params.tag ?? []}/>
+                </Labelled>
                 <PrimaryButton submit={true}>Explore</PrimaryButton>
               </>
             )}
@@ -182,11 +190,14 @@ export const Explorer = ({}: {}) => {
               <Select options={SPLIT_OPTIONS} value={split} onChange={setSplit} disabled={chart == Chart.PIE}/>
             </Labelled>
           </Flex>
-          {maybeRenderChart(chart, loadingAnalysisPoints ? undefined : analysisPoints)}
+          <Flex space="around" overflow="auto">
+            {maybeRenderChart(chart, loadingAnalysisPoints ? undefined : analysisPoints)}
+          </Flex>
           <Transactions
             from={props.from}
             to={props.to}
             categories={props.category}
+            tags={props.tag}
           />
         </>
       )}
